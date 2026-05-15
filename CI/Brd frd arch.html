@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic BRD/FRD Architecture · JPMC Merchant Services</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+  :root{
+    --bg-0:#05070d;
+    --bg-1:#0a0f1c;
+    --bg-2:#0f1626;
+    --bg-3:#141d33;
+    --border:#1f2a44;
+    --border-hot:#2d3e66;
+    --text-0:#e6ecff;
+    --text-1:#9aa6c4;
+    --text-2:#5e6a87;
+    --cyan:#22d3ee;
+    --cyan-dim:#0e7490;
+    --violet:#a78bfa;
+    --violet-dim:#6d28d9;
+    --amber:#fbbf24;
+    --green:#34d399;
+    --red:#f87171;
+    --grid:rgba(34, 211, 238, 0.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg-0);color:var(--text-0);font-family:'IBM Plex Sans',sans-serif;font-weight:400;line-height:1.55;overflow-x:hidden}
+  body{
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(167,139,250,0.10), transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(34,211,238,0.08), transparent 50%),
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: auto, auto, 60px 60px, 60px 60px;
+    background-attachment: fixed;
+    min-height:100vh;
+    padding:48px 24px 64px;
+  }
+  .wrap{max-width:1280px;margin:0 auto}
+  .mono{font-family:'JetBrains Mono',monospace;font-feature-settings:"liga" 0}
+
+  /* Header */
+  header{
+    display:flex;flex-direction:column;gap:8px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:24px;margin-bottom:48px;
+  }
+  .eyebrow{display:flex;align-items:center;gap:12px}
+  .eyebrow .pill{
+    font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;
+    letter-spacing:0.12em;text-transform:uppercase;
+    color:var(--cyan);background:rgba(34,211,238,0.08);
+    border:1px solid rgba(34,211,238,0.25);
+    padding:4px 10px;border-radius:3px;
+  }
+  .eyebrow .meta{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-2);letter-spacing:0.05em}
+  h1{
+    font-size:34px;font-weight:300;letter-spacing:-0.02em;color:var(--text-0);
+    margin-top:4px;
+  }
+  h1 .accent{color:var(--cyan);font-weight:500}
+  h1 .accent2{color:var(--violet);font-weight:500}
+  .subtitle{font-size:15px;color:var(--text-1);max-width:780px;margin-top:8px}
+
+  /* Layer container */
+  .layer{
+    position:relative;
+    background:linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:28px 28px 32px;
+    margin-bottom:8px;
+  }
+  .layer::before{
+    content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:linear-gradient(180deg, var(--cyan), var(--violet));
+    border-radius:8px 0 0 8px;
+  }
+  .layer-head{
+    display:flex;align-items:baseline;gap:14px;
+    margin-bottom:22px;
+  }
+  .layer-num{
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
+    color:var(--cyan);letter-spacing:0.18em;
+  }
+  .layer-title{
+    font-size:20px;font-weight:500;letter-spacing:-0.005em;color:var(--text-0);
+  }
+  .layer-desc{
+    margin-left:auto;font-size:12px;color:var(--text-2);
+    font-family:'JetBrains Mono',monospace;letter-spacing:0.03em;
+  }
+
+  /* Cards */
+  .row{display:grid;gap:16px;margin-bottom:16px}
+  .row-2{grid-template-columns:1fr 1fr}
+  .row-3{grid-template-columns:1fr 1fr 1fr}
+  .row-4{grid-template-columns:repeat(4,1fr)}
+  .row-5{grid-template-columns:repeat(5,1fr)}
+  @media(max-width:900px){
+    .row-2,.row-3,.row-4,.row-5{grid-template-columns:1fr}
+  }
+
+  .card{
+    background:var(--bg-2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:18px 20px;
+    position:relative;
+    transition:border-color 200ms ease, transform 200ms ease;
+  }
+  .card:hover{border-color:var(--border-hot)}
+  .card.agent{
+    background:linear-gradient(180deg, var(--bg-2), var(--bg-3));
+    border-color:rgba(34,211,238,0.18);
+  }
+  .card.agent::after{
+    content:'';position:absolute;top:0;right:0;width:60px;height:1px;
+    background:linear-gradient(90deg, transparent, var(--cyan));
+  }
+  .card.validator{
+    background:linear-gradient(180deg, var(--bg-2), var(--bg-3));
+    border-color:rgba(167,139,250,0.20);
+  }
+  .card.validator::after{
+    content:'';position:absolute;top:0;right:0;width:60px;height:1px;
+    background:linear-gradient(90deg, transparent, var(--violet));
+  }
+  .card.metric{padding:16px 18px}
+
+  .card-label{
+    display:flex;align-items:center;gap:8px;
+    font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;
+    letter-spacing:0.14em;text-transform:uppercase;color:var(--text-2);
+    margin-bottom:8px;
+  }
+  .card-label.cyan{color:var(--cyan)}
+  .card-label.violet{color:var(--violet)}
+  .card-label.amber{color:var(--amber)}
+  .card-label.green{color:var(--green)}
+  .card-label .dot{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+  .card-title{font-size:15px;font-weight:500;color:var(--text-0);margin-bottom:6px}
+  .card-body{font-size:13px;color:var(--text-1);line-height:1.6}
+  .card-body ul{list-style:none;padding:0;margin-top:6px}
+  .card-body li{padding:3px 0;padding-left:14px;position:relative;font-size:12.5px;color:var(--text-1)}
+  .card-body li::before{
+    content:'';position:absolute;left:0;top:9px;
+    width:6px;height:1px;background:var(--cyan-dim);
+  }
+  .card-body code,
+  .skill{
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;
+    background:rgba(34,211,238,0.06);
+    color:var(--cyan);
+    border:1px solid rgba(34,211,238,0.18);
+    padding:2px 6px;border-radius:3px;
+  }
+  .skill.violet{
+    background:rgba(167,139,250,0.06);
+    color:var(--violet);
+    border-color:rgba(167,139,250,0.22);
+  }
+  .skill-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+
+  /* Source chips */
+  .sources{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--text-1);background:var(--bg-3);
+    border:1px solid var(--border);
+    padding:4px 8px;border-radius:3px;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .chip i{color:var(--cyan);font-size:12px}
+
+  /* Connectors */
+  .connector{
+    height:48px;position:relative;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .connector .line{
+    width:1px;height:100%;
+    background:linear-gradient(180deg, transparent, var(--cyan), transparent);
+    position:relative;
+  }
+  .connector .pulse{
+    position:absolute;left:50%;top:0;transform:translateX(-50%);
+    width:3px;height:8px;
+    background:var(--cyan);
+    border-radius:2px;
+    box-shadow:0 0 12px var(--cyan), 0 0 4px var(--cyan);
+    animation:flow 2.4s ease-in-out infinite;
+  }
+  .connector .label{
+    position:absolute;left:calc(50% + 16px);
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    color:var(--text-2);letter-spacing:0.06em;
+    background:var(--bg-0);padding:2px 8px;
+    border:1px solid var(--border);border-radius:3px;
+  }
+  @keyframes flow{
+    0%{top:-8px;opacity:0}
+    20%{opacity:1}
+    80%{opacity:1}
+    100%{top:calc(100% + 0px);opacity:0}
+  }
+
+  /* Inline arrows between cards */
+  .agent-pair{
+    display:grid;grid-template-columns:1fr 60px 1fr;gap:0;align-items:stretch;
+  }
+  @media(max-width:900px){
+    .agent-pair{grid-template-columns:1fr}
+  }
+  .arrow-h{
+    display:flex;align-items:center;justify-content:center;position:relative;
+  }
+  .arrow-h .arrow-line{
+    width:100%;height:1px;
+    background:linear-gradient(90deg, transparent, var(--violet), transparent);
+  }
+  .arrow-h .arrow-pulse{
+    position:absolute;top:50%;left:0;transform:translateY(-50%);
+    width:8px;height:3px;background:var(--violet);
+    box-shadow:0 0 12px var(--violet);
+    border-radius:2px;
+    animation:flow-h 2.4s ease-in-out infinite;
+  }
+  @keyframes flow-h{
+    0%{left:-8px;opacity:0}
+    20%{opacity:1}
+    80%{opacity:1}
+    100%{left:calc(100% + 8px);opacity:0}
+  }
+  @media(max-width:900px){
+    .arrow-h{height:36px}
+  }
+
+  /* Output block */
+  .output-block{
+    margin-top:18px;
+    background:rgba(34,211,238,0.04);
+    border:1px dashed rgba(34,211,238,0.30);
+    border-radius:6px;
+    padding:14px 18px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .output-block .out-file{
+    font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--cyan);
+  }
+  .output-block .score-badge{
+    margin-left:auto;
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--green);
+    background:rgba(52,211,153,0.08);
+    border:1px solid rgba(52,211,153,0.30);
+    padding:4px 10px;border-radius:3px;
+  }
+  .output-block .score-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+  /* Metrics layer */
+  .metric-card{padding:14px 16px}
+  .metric-card .metric-list{
+    list-style:none;margin-top:8px;display:flex;flex-direction:column;gap:5px;
+  }
+  .metric-card .metric-list li{
+    font-size:12px;color:var(--text-1);
+    padding:0;padding-left:0;
+  }
+  .metric-card .metric-list li::before{display:none}
+  .metric-card .metric-list li .k{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    color:var(--text-2);margin-right:6px;
+  }
+
+  /* Footer note */
+  .footer-note{
+    margin-top:40px;padding-top:20px;
+    border-top:1px solid var(--border);
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--text-2);letter-spacing:0.05em;
+  }
+  .footer-note .legend{display:flex;gap:18px;flex-wrap:wrap}
+  .footer-note .legend span{display:inline-flex;align-items:center;gap:6px}
+  .footer-note .legend .sw{width:10px;height:10px;border-radius:2px;border:1px solid}
+  .sw.agent-sw{border-color:rgba(34,211,238,0.4);background:rgba(34,211,238,0.08)}
+  .sw.validator-sw{border-color:rgba(167,139,250,0.4);background:rgba(167,139,250,0.08)}
+  .sw.metric-sw{border-color:var(--border);background:var(--bg-2)}
+
+  /* Scan-line aesthetic accent */
+  .corner{position:absolute;width:14px;height:14px;border:1px solid var(--cyan)}
+  .corner.tl{top:-1px;left:-1px;border-right:none;border-bottom:none}
+  .corner.tr{top:-1px;right:-1px;border-left:none;border-bottom:none}
+  .corner.bl{bottom:-1px;left:-1px;border-right:none;border-top:none}
+  .corner.br{bottom:-1px;right:-1px;border-left:none;border-top:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="eyebrow">
+      <span class="pill">v0.1 · architecture</span>
+      <span class="meta">JPMC · Merchant Services · AI Automation</span>
+    </div>
+    <h1>Agentic <span class="accent">BRD</span> &amp; <span class="accent2">FRD</span> generation pipeline</h1>
+    <p class="subtitle">A four-layer agentic system that ingests product context from across the enterprise, generates and validates business and functional requirement documents through chat, and reports on cost, quality, and adoption.</p>
+  </header>
+
+  <!-- ============ LAYER 01 · DATA ============ -->
+  <section class="layer">
+    <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+    <div class="layer-head">
+      <span class="layer-num">01</span>
+      <span class="layer-title">Data layer</span>
+      <span class="layer-desc">// context ingestion · change detection · retrieval</span>
+    </div>
+
+    <div class="row row-2">
+      <!-- Knowledge sources -->
+      <div class="card">
+        <div class="card-label cyan"><span class="dot"></span>Knowledge sources</div>
+        <div class="card-title">Enterprise artifact ingest</div>
+        <div class="card-body">Indexed corpus of upstream design and decision artifacts. Source-of-truth pointers and embeddings stored with provenance.</div>
+        <div class="sources">
+          <span class="chip"><i class="ti ti-vector"></i>Lucid</span>
+          <span class="chip"><i class="ti ti-presentation"></i>PowerPoint</span>
+          <span class="chip"><i class="ti ti-notebook"></i>Confluence</span>
+          <span class="chip"><i class="ti ti-ticket"></i>Jira</span>
+          <span class="chip"><i class="ti ti-folders"></i>SharePoint</span>
+          <span class="chip"><i class="ti ti-plus"></i>+ extensible</span>
+        </div>
+      </div>
+
+      <!-- Code repo -->
+      <div class="card">
+        <div class="card-label cyan"><span class="dot"></span>Code repository</div>
+        <div class="card-title">Application Seal ID source</div>
+        <div class="card-body">Brownfield support. Existing application code indexed and chunked by module so the BRD agent can ground requirements in real implementation surface area.</div>
+        <div class="sources">
+          <span class="chip"><i class="ti ti-brand-github"></i>Repo by Seal ID</span>
+          <span class="chip"><i class="ti ti-file-code"></i>AST-aware chunks</span>
+          <span class="chip"><i class="ti ti-shield-lock"></i>Read-only</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Curator agent spans both -->
+    <div class="card agent" style="margin-top:6px">
+      <div class="card-label cyan"><span class="dot"></span>Managed by</div>
+      <div class="card-title">Data curator agent</div>
+      <div class="skill-row">
+        <span class="skill">data_curator.skill.md</span>
+        <span class="skill">change_monitor.skill.md</span>
+      </div>
+      <div class="card-body" style="margin-top:12px">
+        <ul>
+          <li><strong style="color:var(--text-0);font-weight:500">Sync &amp; freshness</strong> — incremental re-indexing on source change; staleness scoring per artifact</li>
+          <li><strong style="color:var(--text-0);font-weight:500">Change detection &amp; downstream flagging</strong> — when an upstream artifact changes, any BRD/FRD that referenced it is auto-flagged for review</li>
+          <li><strong style="color:var(--text-0);font-weight:500">Context retrieval</strong> — serves grounded, citation-attached context to the BRD agent on demand (RAG with reranking)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Connector -->
+  <div class="connector">
+    <div class="line"><div class="pulse"></div></div>
+    <div class="label">context.retrieve()</div>
+  </div>
+
+  <!-- ============ LAYER 02 · BRD ============ -->
+  <section class="layer">
+    <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+    <div class="layer-head">
+      <span class="layer-num">02</span>
+      <span class="layer-title">BRD generation layer</span>
+      <span class="layer-desc">// chat-driven authoring · validation · completion scoring</span>
+    </div>
+
+    <div class="agent-pair">
+      <!-- BRD chat agent -->
+      <div class="card agent">
+        <div class="card-label cyan"><span class="dot"></span>Authoring agent</div>
+        <div class="card-title">BRD chat agent</div>
+        <div class="skill-row">
+          <span class="skill">brd_author.skill.md</span>
+        </div>
+        <div class="card-body" style="margin-top:12px">
+          Skill defines the BRD schema, required sections, and probing questions per section. Agent pulls context from the data layer and the code repo (brownfield), then drives the conversation with the PM until coverage thresholds are met.
+          <ul>
+            <li>Required sections &amp; field-level prompts</li>
+            <li>Probing questions per topic</li>
+            <li>Cites data-layer sources inline</li>
+            <li>Drafts <code>BRD.md</code> incrementally</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="arrow-h">
+        <div class="arrow-line"></div>
+        <div class="arrow-pulse"></div>
+      </div>
+
+      <!-- BRD validation agent -->
+      <div class="card validator">
+        <div class="card-label violet"><span class="dot"></span>Validation agent</div>
+        <div class="card-title">BRD validator</div>
+        <div class="skill-row">
+          <span class="skill violet">brd_validator.skill.md</span>
+        </div>
+        <div class="card-body" style="margin-top:12px">
+          Takes <code>BRD.md</code> as input. Cross-validates against the authoring skill's required topics, the data layer artifacts, and the code surface. Returns a completion score and section-level gap suggestions.
+          <ul>
+            <li>Section coverage check</li>
+            <li>Cross-reference against source artifacts</li>
+            <li>Per-section completion score</li>
+            <li>Suggestions returned to chat for one-click fill-in</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="output-block">
+      <i class="ti ti-file-check" style="color:var(--cyan);font-size:18px"></i>
+      <span class="out-file">BRD.md</span>
+      <span style="color:var(--text-2);font-size:12px;font-family:'JetBrains Mono',monospace">// finalized after validation pass</span>
+      <span class="score-badge"><span class="dot"></span>completion score · gated</span>
+    </div>
+  </section>
+
+  <!-- Connector -->
+  <div class="connector">
+    <div class="line"><div class="pulse"></div></div>
+    <div class="label">BRD.md → FRD agent</div>
+  </div>
+
+  <!-- ============ LAYER 03 · FRD ============ -->
+  <section class="layer">
+    <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+    <div class="layer-head">
+      <span class="layer-num">03</span>
+      <span class="layer-title">FRD generation layer</span>
+      <span class="layer-desc">// functional translation · validation · acceptance</span>
+    </div>
+
+    <div class="agent-pair">
+      <div class="card agent">
+        <div class="card-label cyan"><span class="dot"></span>Authoring agent</div>
+        <div class="card-title">FRD chat agent</div>
+        <div class="skill-row">
+          <span class="skill">frd_author.skill.md</span>
+        </div>
+        <div class="card-body" style="margin-top:12px">
+          Consumes accepted <code>BRD.md</code>. Skill defines functional decomposition rules: actor flows, system behaviors, data contracts, error states, NFRs. Chat supports inquiry and inline modification.
+          <ul>
+            <li>BRD → functional spec translation</li>
+            <li>Inquiry mode (ask questions of the FRD)</li>
+            <li>Modify-via-chat with diff preview</li>
+            <li>Drafts <code>FRD.md</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="arrow-h">
+        <div class="arrow-line"></div>
+        <div class="arrow-pulse"></div>
+      </div>
+
+      <div class="card validator">
+        <div class="card-label violet"><span class="dot"></span>Validation agent</div>
+        <div class="card-title">FRD validator</div>
+        <div class="skill-row">
+          <span class="skill violet">frd_validator.skill.md</span>
+        </div>
+        <div class="card-body" style="margin-top:12px">
+          Validates "Accepted" <code>FRD.md</code> against the authoring skill and the upstream BRD. Same pattern as Layer 02 — completion score, gap suggestions, in-chat remediation.
+          <ul>
+            <li>BRD-to-FRD traceability check</li>
+            <li>Testability / acceptance-criteria coverage</li>
+            <li>Per-section completion score</li>
+            <li>Remediation suggestions in chat</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="output-block">
+      <i class="ti ti-file-check" style="color:var(--cyan);font-size:18px"></i>
+      <span class="out-file">FRD.md</span>
+      <span style="color:var(--text-2);font-size:12px;font-family:'JetBrains Mono',monospace">// dev-ready handoff to SDLC build agents</span>
+      <span class="score-badge"><span class="dot"></span>completion score · gated</span>
+    </div>
+  </section>
+
+  <!-- Connector -->
+  <div class="connector">
+    <div class="line"><div class="pulse"></div></div>
+    <div class="label">telemetry.emit()</div>
+  </div>
+
+  <!-- ============ LAYER 04 · METRICS ============ -->
+  <section class="layer">
+    <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+    <div class="layer-head">
+      <span class="layer-num">04</span>
+      <span class="layer-title">Metrics layer</span>
+      <span class="layer-desc">// auto-computed from pipeline telemetry</span>
+    </div>
+
+    <div class="row row-4">
+      <!-- Cost -->
+      <div class="card metric-card">
+        <div class="card-label amber"><span class="dot"></span>Cost</div>
+        <ul class="metric-list">
+          <li><span class="k">M01</span>$ per completed BRD</li>
+          <li><span class="k">M02</span>$ per completed FRD</li>
+        </ul>
+      </div>
+
+      <!-- Quality -->
+      <div class="card metric-card">
+        <div class="card-label violet"><span class="dot"></span>Quality</div>
+        <ul class="metric-list">
+          <li><span class="k">M03</span>Avg completion score at acceptance</li>
+          <li><span class="k">M04</span>First-pass acceptance rate</li>
+        </ul>
+      </div>
+
+      <!-- Throughput -->
+      <div class="card metric-card">
+        <div class="card-label green"><span class="dot"></span>Throughput</div>
+        <ul class="metric-list">
+          <li><span class="k">M05</span>Documents generated / month</li>
+          <li><span class="k">M06</span>BRD-to-FRD cycle time</li>
+        </ul>
+      </div>
+
+      <!-- Operational -->
+      <div class="card metric-card">
+        <div class="card-label cyan"><span class="dot"></span>Operational</div>
+        <ul class="metric-list">
+          <li><span class="k">M07</span>Agent latency (p95)</li>
+          <li><span class="k">M08</span>Upstream change alerts fired</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <div class="footer-note">
+    <div class="legend">
+      <span><span class="sw agent-sw"></span> authoring agent</span>
+      <span><span class="sw validator-sw"></span> validation agent</span>
+      <span><span class="sw metric-sw"></span> data / metric</span>
+    </div>
+    <div>v0.1 · agentic_brd_frd_architecture · V · Automation PBI</div>
+  </div>
+
+</div>
+</body>
+</html>
