@@ -1072,7 +1072,7 @@ If a future Phase 5 task surfaces a genuine cross-feature dependency the lint ru
 
 ---
 
-## T4 — pydantic-settings Settings class + 13-variable env schema
+## T4 — pydantic-settings Settings class + 12 backend + 1 frontend env schema (13 total)
 
 **Depends on:** T1
 **Touches files:** `/api/config.py`
@@ -1080,7 +1080,7 @@ If a future Phase 5 task surfaces a genuine cross-feature dependency the lint ru
 
 ### Goal
 
-Create the typed `Settings` class that loads all 13 environment variables (12 backend per D-066 + 1 added in Phase 5 for `JPMC_JIRA_BASE_URL` per D-073 resolution). Wire fail-fast validation with helpful error messages, including the conditional-required check on `PIPELINE_MODULE_PATH`. The frontend `VITE_API_BASE_URL` is loaded by Vite separately (T5 covers the `.env.example` files for both packages).
+Create the typed `Settings` class loading 12 backend env vars + 1 frontend env var (13 total: 12 backend per D-066 + JPMC_JIRA_BASE_URL added in Phase 5 per D-073, plus 1 frontend VITE_API_BASE_URL loaded by Vite). Wire fail-fast validation with helpful error messages, including the conditional-required check on `PIPELINE_MODULE_PATH`. The frontend `VITE_API_BASE_URL` is loaded by Vite separately (T5 covers the `.env.example` files for both packages).
 
 ### Context
 
@@ -3713,19 +3713,26 @@ class EventType(str, Enum):
              "exit_code": <int> | null}
     """
 
+    # tasks.md UX-tuned types (preserved for Activity tab rendering):
     RUN_STARTED = "run_started"
-    STAGE_STARTED = "stage_started"
+    STAGE_STARTED = "stage_started"            # alias for tech-spec §5.2 step_started
     STAGE_PROGRESS = "stage_progress"
-    STAGE_COMPLETED = "stage_completed"
+    STAGE_COMPLETED = "stage_completed"        # alias for tech-spec §5.2 step_completed
     VALIDATION_FAILURE = "validation_failure"
     WARNING = "warning"
-    COMPARISON_READY = "comparison_ready"
+    COMPARISON_READY = "comparison_ready"      # alias for tech-spec §5.2 comparison_phase_completed
     PRE_APPROVAL_REACHED = "pre_approval_reached"
     APPROVAL_SUBMITTED = "approval_submitted"
-    JIRA_CREATED = "jira_created"
-    SHAREPOINT_SYNCED = "sharepoint_synced"
+    JIRA_CREATED = "jira_created"              # subset of tech-spec §5.2 jira_artifact_created
+    SHAREPOINT_SYNCED = "sharepoint_synced"    # subset of tech-spec §5.2 jira_artifact_created
     SUBMISSION_COMPLETE = "submission_complete"
     RUN_FAILED = "run_failed"
+    # tech-spec §5.2 alignment additions:
+    STEP_FAILED = "step_failed"
+    PAGE_PROCESSED = "page_processed"
+    VALIDATION_ATTEMPT = "validation_attempt"
+    MNEMONIC_GENERATION_ATTEMPT = "mnemonic_generation_attempt"
+    RUN_STATE_CHANGED = "run_state_changed"
 
 
 # Event types that appear in the Issues tab per D-049 + D-058 #2.
@@ -4549,7 +4556,11 @@ class BaseTableRow(BaseModel):
 class DrawerRecord(BaseModel):
     """Detailed comparison record for the drawer panel.
 
-    Populated from comparison/comparison_results.json, filtered by match_tag.
+    Populated from comparison/delta_report.json (Field Deltas) merged with etl_summary_*.json (ETL Impact), filtered by match_tag.
+
+    Backend-spec §4.3 confirms the pipeline writes `delta_report.json`, not
+    `comparison_results.json` — earlier spec drafts used the latter name;
+    tasks.md aligns with the real artifact.
     Contains old vs new field values, correlated_fields mapping, and
     ETL impact entries.
     """
@@ -4807,7 +4818,7 @@ logger = logging.getLogger(__name__)
 # --- File path conventions (relative to run folder root) ---
 _COMPARISON_DIR = "comparison"
 _MOD_FILE = Path(_COMPARISON_DIR) / "mod_file_entries.json"
-_COMPARISON_RESULTS = Path(_COMPARISON_DIR) / "comparison_results.json"
+_DELTA_REPORT = Path(_COMPARISON_DIR) / "delta_report.json"
 _RAW_EXTRACTS_DIR = "raw_extracts"
 _INPUT_DIR = "input"
 _JIRA_COMPLETE = "jira_submission_complete.json"
@@ -4844,6 +4855,20 @@ def _safe_read_json(path: Path) -> Any | None:
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("Could not read %s: %s", path, exc)
         return None
+
+
+def _read_metadata(run_folder: Path) -> dict | None:
+    """Read pipeline_metadata.json if present.
+
+    Schema per backend-spec §11:
+        {"merchant": "...", "release": "...", "timestamp": "...",
+         "mode": "normal"|"resume", "extraction_mode": "vision", ...}
+
+    Returns the parsed dict, or None if missing or malformed. Used as a
+    defensive override for merchant + timestamp parsing (folder-name regex
+    is the fallback when this file is absent).
+    """
+    return _safe_read_json(run_folder / "pipeline_metadata.json")
 
 
 class LocalStorageClient(StorageClient):
@@ -4919,20 +4944,57 @@ class LocalStorageClient(StorageClient):
                     logger.warning("Skipping malformed base-table row: %s", exc)
         return rows
 
+    def _load_etl_summary(self, run_folder) -> list[dict]:
+        """Read the most recent etl_summary_*.json in the run folder.
+
+        Schema per backend-spec §4.4:
+            {"story": "<story_key or 'NO_JIRA'>",
+             "release": "...", "network": "Mastercard", "maid": "...",
+             "records": [{"maid", "mnemonic", "mnemonic_desc",
+                          "entry_type": "ADD"|"REMOVE"|"KEEP",
+                          "change_type"}, ...]}
+
+        Returns the records list. Empty list if no summary file exists or
+        the file is malformed — never raises.
+
+        Note: backend-spec §4.4 records do NOT carry match_tag, so callers
+        must filter by (maid, mnemonic) when joining to a base-table row.
+        """
+        matches = sorted(run_folder.glob("etl_summary_*.json"))
+        if not matches:
+            return []
+        # Most recent lexicographically (timestamps in filename sort naturally).
+        data = _safe_read_json(matches[-1])
+        if isinstance(data, dict) and isinstance(data.get("records"), list):
+            return data["records"]
+        return []
+
     def read_drawer_record(self, run_id: str, match_tag: str) -> DrawerRecord | None:
-        data = _safe_read_json(
-            self._output_base / run_id / _COMPARISON_RESULTS
-        )
+        run_folder = self._output_base / run_id
+        data = _safe_read_json(run_folder / _DELTA_REPORT)
         if not isinstance(data, list):
             return None
+        matched = None
         for record in data:
             if isinstance(record, dict) and record.get("match_tag") == match_tag:
-                try:
-                    return DrawerRecord(**record)
-                except Exception as exc:
-                    logger.warning("Malformed drawer record for match_tag=%s: %s", match_tag, exc)
-                    return None
-        return None
+                matched = record
+                break
+        if matched is None:
+            return None
+        # Filter ETL summary records by (maid, mnemonic) — backend-spec §4.4
+        # records don't carry match_tag, so (maid, mnemonic) is the only key.
+        etl_records = self._load_etl_summary(run_folder)
+        maid = matched.get("maid")
+        mnem = matched.get("mnemonic")
+        etl_entries = [
+            e for e in etl_records
+            if e.get("maid") == maid and e.get("mnemonic") == mnem
+        ] if (maid and mnem) else []
+        try:
+            return DrawerRecord(**matched, etl_entries=etl_entries)
+        except Exception as exc:
+            logger.warning("Malformed drawer record for match_tag=%s: %s", match_tag, exc)
+            return None
 
     def read_raw_extract(self, run_id: str, match_tag: str) -> dict | None:
         extract_dir = self._output_base / run_id / _RAW_EXTRACTS_DIR
@@ -5447,9 +5509,159 @@ The `mock_state` field in `runs.json` is consumed ONLY by MockStorageClient meth
 
 ---
 
+## T-D7 — Partner-side event emission contract (handoff document)
+
+**Depends on:** T-C4 (EventType enum must be settled before partner emission)
+**Touches files:** (none in this repo — partner's pipeline package)
+**Estimated effort:** documentation only on this side; 1–3 days partner effort
+
+### Goal
+
+Document the contract that the partner's pipeline must implement: emit
+JSON event lines to stdout per the 17-type taxonomy in T-C4, at ~15–25
+emission sites throughout the existing pipeline modules. This task is
+**NOT Copilot-executable on the UI side** — it is a handoff artifact V
+shares with the partner's Copilot/engineer. Acceptance is partner
+commitment + integration verification against a test merchant.
+
+### Context
+
+From tech-spec §5.1 (Emission architecture):
+
+> The backend emits structured JSON event lines to stdout alongside (not
+> replacing) the existing human-readable prints per `backend-spec.md` §13.1.
+> The `PipelineRunner` adapter (§2.3) reads stdout line by line; lines
+> matching the event marker are parsed, written to the `events` table, and
+> broadcast to open SSE subscribers; non-event lines stay as log output.
+
+From tech-spec §5.4 (Refactor scope sizing per D-059):
+
+> ~15–25 emission points in the pipeline modules. One new utility file
+> (e.g., `event_emitter.py`) with the `emit_event(...)` helper.
+> Modifications are additive — existing human-readable prints stay;
+> structured event lines go alongside; no removals. Partner effort
+> estimate: 1–3 days.
+
+### Implementation (partner-side)
+
+**File: `<PIPELINE_MODULE_PATH>/event_emitter.py`** (new file):
+
+```python
+"""
+Structured event emission for ci_ui consumption.
+
+Each emit_event call writes one JSON line to stdout with the form:
+    {"_event": "<type>", "ts": "<iso>", "run_id": "...", ...payload}
+
+The UI's subprocess wrapper (api/adapters/subprocess_runner.py) reads
+stdout line-by-line, parses lines starting with {"_event":, and bridges
+them into the events table + SSE broadcast. Non-event stdout lines pass
+through as log output (visible in pipeline.log).
+
+Calling this from a CLI run that has no UI consumer is harmless — the
+JSON lines just go to stdout and nobody reads them.
+"""
+import json, sys, datetime, os
+
+def emit_event(event_type: str, **payload) -> None:
+    event = {
+        "_event": event_type,
+        "ts": datetime.datetime.utcnow().isoformat() + "Z",
+        **payload,
+    }
+    sys.stdout.write(json.dumps(event) + "\n")
+    sys.stdout.flush()
+```
+
+### 17-type taxonomy with example emit_event calls
+
+(Schemas mirror T-C4's EventType enum; backend MUST use these exact type
+strings — case-sensitive — for the UI to bridge events correctly.)
+
+```python
+# Run lifecycle
+emit_event("run_started", run_id=run_id, phase="staged", operator_id=operator_id)
+emit_event("run_completed", run_id=run_id, phase="staged", final_state="pre_approval", duration_ms=elapsed)
+emit_event("run_failed", run_id=run_id, phase="staged", step=step_num, error_message=str(exc), traceback=tb, source="backend")
+emit_event("run_state_changed", run_id=run_id, old_state="mid_run_staged", new_state="pre_approval")
+
+# Step-level
+emit_event("step_started", run_id=run_id, step=N, step_name="Vision extraction")
+emit_event("step_completed", run_id=run_id, step=N, duration_ms=elapsed)
+emit_event("step_failed", run_id=run_id, step=N, error_message=str(exc), traceback=tb)
+
+# Sub-step granular (medium granularity per D-044)
+emit_event("page_processed", run_id=run_id, page_number=p, action="process"|"skip", reason=str)
+emit_event("validation_attempt", run_id=run_id, step="1.5"|"2.5", attempt_number=n, result="pass"|"retry"|"flag_for_review")
+emit_event("mnemonic_generation_attempt", run_id=run_id, attempt_number=n, result="...")
+emit_event("validation_failure", run_id=run_id, severity="CRITICAL"|"ERROR"|"WARNING",
+           record_maid=maid, record_mnemonic=mnem, message="...", remediation_hint="...")
+emit_event("warning", run_id=run_id, message="...", context={...})
+
+# Comparison + approval
+emit_event("comparison_phase_completed", run_id=run_id, phase_name="...", records_processed=N)
+emit_event("comparison_ready", run_id=run_id, changes_summary={"add": N, "remove": N, "rate_update": N, "mcc_expansion": N})
+emit_event("pre_approval_reached", run_id=run_id, output_folder=path, artifacts=[...])
+emit_event("approval_submitted", run_id=run_id, target_systems=["jira", "sharepoint"])
+emit_event("jira_created", run_id=run_id, epic_key="...", story_key="...")
+emit_event("sharepoint_synced", run_id=run_id, folder_path="...")
+emit_event("submission_complete", run_id=run_id, epic_key="...", story_key="...", sharepoint_path="...")
+emit_event("jira_artifact_created", run_id=run_id, artifact_type="epic"|"story"|"attachment", key_or_path="...")
+```
+
+### Emission site map (~15–25 sites)
+
+Distributed across these pipeline modules (paths relative to
+`PIPELINE_MODULE_PATH`):
+
+| Module | Emission sites | Approx count |
+|---|---|---|
+| `CI_LLM_unified_pipeline.py` | `run_started`, `step_started`/`step_completed` at each of 8 steps, `step_failed` per try/except, `run_failed`, `run_completed`, `run_state_changed` (pre_approval), `pre_approval_reached` | ~12 |
+| `src/claude_agent_process/mpp_pipeline.py` (vision) | `page_processed` (per page), `validation_attempt` (Step 1.5 + 2.5 per retry) | ~3–5 |
+| `src/compare/mpp_comparison_engine.py` | `comparison_phase_completed` per sub-phase, `comparison_ready` on final delta_report write | ~2–3 |
+| `mnemonic` modules | `mnemonic_generation_attempt` per retry, `validation_failure` on final flag | ~2 |
+| Jira/SharePoint orchestration (approval phase) | `approval_submitted`, `jira_created`, `sharepoint_synced`, `submission_complete`, `jira_artifact_created` per artifact | ~5 |
+
+### Integration verification protocol
+
+1. Partner integrates `event_emitter.py` and emit_event calls into the pipeline modules
+2. Partner runs ONE test merchant end-to-end with the UI's `SubprocessPipelineRunner` consuming stdout
+3. V verifies: `sqlite3 ci_ui.db "SELECT type FROM events WHERE run_id='<test>' ORDER BY id"` shows the expected event sequence (run_started → step_started × 8 → comparison_ready → pre_approval_reached at minimum)
+4. V verifies: Activity tab on UI renders the timeline progressively as the run executes
+5. V verifies: `<output_folder>/pipeline.log` contains the non-event stdout lines (human-readable prints) — see T-D4 pipeline.log writing
+
+### Acceptance criteria
+
+- [ ] V has shared this document with the partner's Copilot/engineer
+- [ ] Partner has committed to a target merge date for the `event_emitter.py` PR
+- [ ] Partner's PR lands in the pipeline repo BEFORE T-K1 (end-to-end happy path) is run against `ADAPTER_PROFILE=real`
+- [ ] One test merchant has been run end-to-end through the integrated stack; events appear in `events` table and on the Activity tab
+- [ ] (Verification, not implementation) Existing human-readable prints from `backend-spec.md` §13.1 are PRESERVED; emit_event calls are ADDITIVE
+
+### Notes
+
+This task does NOT generate UI-side code. It exists in tasks.md so the
+dependency T-D4 → T-D7 is explicit and so V has a single place to point
+the partner at when initiating the coordination.
+
+The taxonomy here is the SUPERSET resolved in T-C4 — both tasks.md's
+UX-tuned types (stage_started, comparison_ready, etc.) AND tech-spec §5.2's
+agentic-detail types (page_processed, validation_attempt, etc.). The
+partner emits the types relevant to where they are in the pipeline; the
+UI's INVALIDATION_MAP in T-F3 covers all 17.
+
+If the partner answers "we can't change the pipeline modules" — the
+fallback is a thinner outer wrapper around `run_unified_pipeline` /
+`submit_to_jira` that EMITS at the boundaries (run_started, run_failed,
+run_completed) only. The Activity tab degrades to coarse-grain step
+markers but still functions. This is a documented degradation path; not
+recommended but available.
+
+---
+
 ## T-D4 — `SubprocessPipelineRunner` (real pipeline adapter)
 
-**Depends on:** T-D1, T-C2, T-C3, T-C4, T-C5, T-B4
+**Depends on:** T-D1, T-C2, T-C3, T-C4, T-C5, T-B4, T-D7
 **Touches files:** `/api/adapters/subprocess_runner.py`
 **Estimated effort:** large
 
@@ -5541,8 +5753,8 @@ def _build_staged_command(input_folder: str, output_folder: str) -> list[str]:
         f"import run_unified_pipeline; "
         f"run_unified_pipeline("
         f"skip_jira=True, "
-        f"input_path=r'{input_folder}', "
-        f"output_path=r'{output_folder}')"
+        f"new_input_folder=r'{input_folder}', "
+        f"output_base_folder=r'{output_folder}')"
     )
     return [python, "-c", inline_code]
 
@@ -8234,6 +8446,25 @@ const INVALIDATION_MAP: Record<string, (runId: string) => readonly unknown[][]> 
     queryKeys.runs.events(runId),
     queryKeys.locks,
   ],
+
+  // tech-spec §5.2 alignment additions:
+  // run_state_changed is the canonical state-transition fast-path per
+  // tech-spec §5.5; invalidate runs list + run detail + locks.
+  run_state_changed: (runId) => [
+    queryKeys.runs.all,
+    queryKeys.runs.detail(runId),
+    queryKeys.locks,
+  ],
+  // step_failed distinct from run_failed: surfaces step-level errors;
+  // refresh issues + events; run continues (or moves to run_failed later).
+  step_failed: (runId) => [
+    queryKeys.runs.events(runId),
+    queryKeys.runs.issues(runId),
+  ],
+  // Sub-step granular events: just refresh the Activity timeline.
+  page_processed: (runId) => [queryKeys.runs.events(runId)],
+  validation_attempt: (runId) => [queryKeys.runs.events(runId)],
+  mnemonic_generation_attempt: (runId) => [queryKeys.runs.events(runId)],
 }
 
 export function useSSE(runId?: string) {
@@ -10032,7 +10263,7 @@ Section index:
 
 ## T-H1 — RunDetailScreen container + SSE
 
-**Depends on:** T-F2, T-F3, T-F4, T-F6
+**Depends on:** T-F2, T-F3, T-F4, T-F6, T-H1.5
 **Touches files:** `/web/src/features/runs/screens/RunDetailScreen.tsx`
 **Estimated effort:** medium
 
@@ -10079,7 +10310,7 @@ export function RunDetailScreen() {
   const tabs = [
     { key: 'activity', label: 'Activity' },
     { key: 'results', label: 'Results' },
-    { key: 'issues', label: 'Issues', badge: issuesData?.total ?? null },
+    { key: 'issues', label: 'Issues', badge: issuesData?.visible_total ?? issuesData?.total ?? null },  // F4 closure: toggle-filtered count when available
   ]
 
   return (
@@ -10112,6 +10343,161 @@ export function RunDetailScreen() {
 - [ ] Tab bar shows Activity, Results, Issues with issue count badge
 - [ ] Loading and error states render appropriately
 - [ ] Tab switching is in-session only (Zustand, not URL per D-062)
+
+
+## T-H1.5 — PreRunPanel (inline pre-run state for /runs/new)
+
+**Depends on:** T-F2, T-F10, T-G6 (reuses NewRunDialog content patterns)
+**Touches files:** `/web/src/features/runs/components/PreRunPanel.tsx`
+**Estimated effort:** small
+
+### Goal
+
+Render the pre-run state inline within Run Detail when the route is
+`/runs/new` (i.e., no `runId` URL parameter). Per functional-spec §6.1 +
+§4.1: *"`/runs/new` is Run Detail in pre-run state"* with folder picker +
+Run button + lock-aware disabling.
+
+Without this, T-H1 displays "Run not found" because `useRunDetail('')`
+404s. T-G6 NewRunDialog handles the same affordance as a modal on Runs
+List — this task is its non-modal cousin for the dedicated `/runs/new`
+route.
+
+### Implementation
+
+**File: `/web/src/features/runs/components/PreRunPanel.tsx`**:
+
+```typescript
+import { useState } from 'react'
+import { useInputFolders, useStartRun, useLockState } from '@/features/shared/api/hooks'
+import { useToastStore } from '@/features/shared/stores/toastStore'
+import { useNavigate } from 'react-router-dom'
+
+export function PreRunPanel() {
+  const [selected, setSelected] = useState<string | null>(null)
+  const { data, isLoading } = useInputFolders()
+  const { data: lockState } = useLockState()
+  const startRun = useStartRun()
+  const addToast = useToastStore((s) => s.addToast)
+  const navigate = useNavigate()
+
+  const lockHeld = lockState?.held ?? false
+
+  const handleStart = async () => {
+    if (!selected) return
+    try {
+      const result = await startRun.mutateAsync({ input_folder: selected })
+      addToast(result.message || 'Run started', 'success', { run_id: result.run_id })
+      navigate(`/runs/${encodeURIComponent(result.run_id)}`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to start run'
+      addToast(msg, 'error')
+    }
+  }
+
+  if (isLoading) {
+    return <div style={{ padding: 48, color: 'var(--ink-mute)', textAlign: 'center' }}>Loading input folders...</div>
+  }
+
+  return (
+    <div style={{
+      padding: 24, background: 'var(--glass)', border: '1px solid var(--glass-stroke)',
+      borderRadius: 'var(--radius)', backdropFilter: 'blur(16px)',
+      display: 'flex', flexDirection: 'column', gap: 16,
+    }}>
+      <div>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
+          Start New Run
+        </h2>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>
+          Select an input folder from the allowlist (per D-013) to begin the staged pipeline run.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '50vh', overflowY: 'auto' }}>
+        {data?.folders.map((f) => (
+          <button
+            key={f.path}
+            onClick={() => setSelected(f.path)}
+            style={{
+              padding: '10px 14px', textAlign: 'left',
+              borderRadius: 'var(--radius-sm)',
+              border: selected === f.path ? '1px solid var(--cyan)' : '1px solid var(--glass-stroke)',
+              background: selected === f.path ? 'var(--cyan-soft)' : 'var(--glass)',
+              color: 'var(--ink)', cursor: 'pointer',
+              fontFamily: 'var(--font-sans)', fontSize: 13,
+            }}
+          >
+            <div style={{ fontWeight: 500 }}>{f.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 2 }}>
+              {f.path}
+              {f.has_old && f.has_new ? ' — old/ ✓ new/ ✓' : ''}
+              {f.has_old && !f.has_new ? ' — old/ ✓ new/ ✗' : ''}
+              {!f.has_old && f.has_new ? ' — old/ ✗ new/ ✓' : ''}
+            </div>
+          </button>
+        ))}
+        {(!data?.folders || data.folders.length === 0) && (
+          <div style={{ color: 'var(--ink-dim)', padding: 16, textAlign: 'center' }}>
+            No input folders found. Check ALLOWED_INPUT_ROOTS in /api/.env.
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          onClick={handleStart}
+          disabled={!selected || lockHeld || startRun.isPending}
+          title={lockHeld ? 'An active operation is in progress' : undefined}
+          style={{
+            padding: '8px 20px', borderRadius: 'var(--radius-sm)',
+            border: 'none', fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600,
+            background: (selected && !lockHeld) ? 'var(--cyan)' : 'var(--glass)',
+            color: (selected && !lockHeld) ? 'var(--bg)' : 'var(--ink-dim)',
+            cursor: (!selected || lockHeld) ? 'not-allowed' : 'pointer',
+            opacity: (!selected || lockHeld) ? 0.5 : 1,
+          }}
+        >
+          {startRun.isPending ? 'Starting...' : 'Run'}
+        </button>
+      </div>
+    </div>
+  )
+}
+```
+
+Amend T-H1's RunDetailScreen to use PreRunPanel when runId is undefined:
+
+```typescript
+// In RunDetailScreen.tsx, after the const { id: runId } = useParams<...>() line:
+import { PreRunPanel } from '../components/PreRunPanel'
+
+// Replace the early "Run not found" return with:
+if (!runId) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <PreRunPanel />
+    </div>
+  )
+}
+```
+
+### Acceptance criteria
+
+- [ ] Navigating to `/runs/new` renders PreRunPanel — NOT "Run not found"
+- [ ] PreRunPanel lists input folders from `GET /api/input-folders` with name + path + old/new presence indicators
+- [ ] "Run" button is disabled when no folder selected, when `lockState.held === true`, or when start request is pending
+- [ ] Tooltip on disabled Run button (lock case): "An active operation is in progress"
+- [ ] Clicking Run calls `useStartRun({ input_folder: selected })` then navigates to `/runs/{run_id}` from the response
+- [ ] Success toast shows with run_id; clicking the toast (per F7 closure) navigates to the run
+
+### Notes
+
+This is the non-modal counterpart to T-G6 NewRunDialog. T-G6 stays for
+the Runs List "New Run" button (modal-in-place pattern). PreRunPanel
+handles the dedicated `/runs/new` route per functional-spec §4.1. Both
+share the same `useInputFolders` + `useStartRun` hooks, so behavior is
+consistent across entry points.
 
 ---
 
@@ -10584,7 +10970,7 @@ export function StageProgressBar({ events }: Props) {
 
 ## T-H8 — ResultsTab container
 
-**Depends on:** T-F2, T-F4, T-F8
+**Depends on:** T-F2, T-F4, T-F8, T-H8.5
 **Touches files:** `/web/src/features/runs/components/ResultsTab.tsx`
 **Estimated effort:** medium
 
@@ -10651,9 +11037,155 @@ export function ResultsTab({ runId }: Props) {
 - [ ] Drawer loads comparison record via `useDrawerRecord`
 - [ ] Drawer close clears the Zustand drawer state
 
+
+## T-H8.5 — ResultsFilterStrip (Action / AFS / Match Tag chips)
+
+**Depends on:** T-F4, T-F9
+**Touches files:** `/web/src/features/runs/components/ResultsFilterStrip.tsx`, `/web/src/features/shared/stores/uiStore.ts` (modification: add resultsFilters slice)
+
+### Goal
+
+Render a horizontal filter strip above the Results base table with three
+chip groups: Action, AFS, Match Tag. Filters compose with AND semantics
+per functional-spec §6.2.
+
+### Implementation
+
+Add to `/web/src/features/shared/stores/uiStore.ts`:
+
+```typescript
+interface ResultsFilters {
+  action: string | null    // 'Add' | 'Rate Update' | 'MCC Expansion' | 'Remove' | null
+  afs: string | null
+  match_tag: string | null
+}
+// Add to UIState:
+resultsFilters: ResultsFilters
+setResultsFilter: (key: keyof ResultsFilters, value: string | null) => void
+clearResultsFilters: () => void
+```
+
+**File: `/web/src/features/runs/components/ResultsFilterStrip.tsx`**:
+
+```typescript
+import { useMemo } from 'react'
+import { useUIStore } from '@/features/shared/stores/uiStore'
+import { BaseTableRow } from '@/features/shared/api/hooks'
+
+interface Props { rows: BaseTableRow[] }
+
+export function ResultsFilterStrip({ rows }: Props) {
+  const filters = useUIStore((s) => s.resultsFilters)
+  const setFilter = useUIStore((s) => s.setResultsFilter)
+  const clear = useUIStore((s) => s.clearResultsFilters)
+
+  // Compute distinct values from rows.
+  const distinctActions = useMemo(() =>
+    Array.from(new Set(rows.map(r => r.action).filter(Boolean))) as string[],
+    [rows])
+  const distinctAfs = useMemo(() =>
+    Array.from(new Set(rows.map(r => r.afs).filter(Boolean))) as string[],
+    [rows])
+  const distinctMatchTags = useMemo(() =>
+    Array.from(new Set(rows.map(r => r.match_tag).filter(Boolean))) as string[],
+    [rows])
+
+  const hasAnyFilter = !!(filters.action || filters.afs || filters.match_tag)
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14, padding: '10px 14px',
+      background: 'var(--glass)', borderRadius: 'var(--radius-sm)',
+      border: '1px solid var(--glass-stroke)', marginBottom: 8,
+    }}>
+      <FilterGroup label="Action" value={filters.action} options={distinctActions}
+        onChange={(v) => setFilter('action', v)} />
+      <FilterGroup label="AFS" value={filters.afs} options={distinctAfs}
+        onChange={(v) => setFilter('afs', v)} />
+      <FilterGroup label="Match Tag" value={filters.match_tag} options={distinctMatchTags.slice(0, 10)}
+        onChange={(v) => setFilter('match_tag', v)} />
+      {hasAnyFilter && (
+        <button onClick={clear} style={{
+          padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--glass-stroke)', background: 'transparent',
+          color: 'var(--ink-soft)', cursor: 'pointer', fontSize: 12,
+        }}>
+          Clear filters
+        </button>
+      )}
+    </div>
+  )
+}
+
+function FilterGroup({ label, value, options, onChange }: {
+  label: string; value: string | null; options: string[];
+  onChange: (v: string | null) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontSize: 11, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {label}:
+      </span>
+      <select
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        style={{
+          padding: '4px 8px', borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--glass-stroke)', background: 'var(--bg-elev)',
+          color: 'var(--ink)', fontSize: 12,
+        }}
+      >
+        <option value="">All</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  )
+}
+```
+
+Amend T-H8 ResultsTab to:
+1. Apply sort by `(maid, mnemonic)` via `useMemo`
+2. Render `<ResultsFilterStrip rows={data?.rows ?? []} />` above the table
+3. Filter rows by `resultsFilters` (AND composition) before passing to BaseTableWithDrawer
+
+```typescript
+// In ResultsTab.tsx, replace the data?.rows ?? [] passing with:
+const sorted = useMemo(() => {
+  const rs = data?.rows ?? []
+  return [...rs].sort((a, b) =>
+    (a.maid || '').localeCompare(b.maid || '') ||
+    (a.mnemonic || '').localeCompare(b.mnemonic || '')
+  )
+}, [data?.rows])
+const filters = useUIStore((s) => s.resultsFilters)
+const filtered = useMemo(() => sorted.filter(r =>
+  (!filters.action || r.action === filters.action) &&
+  (!filters.afs || r.afs === filters.afs) &&
+  (!filters.match_tag || r.match_tag === filters.match_tag)
+), [sorted, filters])
+
+// Render <ResultsFilterStrip rows={sorted} /> above the BaseTableWithDrawer,
+// pass filtered to rows prop.
+```
+
+State-aware empty state in T-H8:
+- `run.state === 'in_progress'` + `rows.length === 0` → "Pipeline still running — rows will appear as Step 3 completes."
+- `rows.length > 0` + `filtered.length === 0` → "No rows match the current filters."
+- `rows.length === 0` + state in ['pre_approval', 'submitted'] → "This run produced no records. Check Issues tab for details."
+
+### Acceptance criteria
+
+- [ ] Three filter selects render in a horizontal strip above the Results table
+- [ ] Selecting Action="Add" hides all non-Add rows; selecting AFS and Match Tag composes AND
+- [ ] "Clear filters" button appears when any filter is active and clears all
+- [ ] Rows sort primary-by-MAID then secondary-by-Mnemonic (stable)
+- [ ] Mid-run-staged: empty state says "Pipeline still running…"
+- [ ] No-records-final: empty state says "This run produced no records. Check Issues tab for details."
+- [ ] Filtered-out: empty state says "No rows match the current filters."
+
 ---
 
-## T-H9 — Results column definitions
+## T-H9 —  Results column definitions
 
 **Depends on:** T-F9, T-F8
 **Touches files:** `/web/src/features/runs/components/resultsColumns.tsx`
@@ -10672,22 +11204,65 @@ import { ColumnDef } from '@/features/shared/components/BaseTableWithDrawer'
 import { ActionPill } from '@/features/shared/components/ActionPill'
 import { BaseTableRow } from '@/features/shared/api/hooks'
 
+// 18 columns per functional-spec §6.2 (Run Detail / Results tab).
+// Column order is canonical and matches the Phase 4 mockup base-table layout.
+// Source data: mod_file_entries.json + display_fields mapping (ui-approach.md §5).
+// Backend uses extra="allow" so unknown keys pass through; the frontend renders
+// the 18 named columns below and any extras are inert.
 export const resultsColumns: ColumnDef<BaseTableRow>[] = [
-  { key: 'match_tag', header: 'Match Tag', mono: true, width: '100px' },
-  { key: 'maid', header: 'MAID', mono: true, width: '80px' },
-  { key: 'mnemonic', header: 'Mnemonic', width: '160px' },
+  // 1. Jira Key — derived from jira_submission_complete.json when Submitted, else blank
   {
-    key: 'action', header: 'Action', width: '120px',
+    key: 'jira_key', header: 'Jira Key', mono: true, width: '120px',
+    render: (row) => {
+      const ek = row.epic_key; const sk = row.story_key
+      return ek ? String(ek) + (sk ? ` / ${sk}` : '') : ''
+    },
+  },
+  // 2. Action — colored pill per D-047
+  {
+    key: 'action', header: 'Action', width: '110px',
     render: (row) => row.action ? <ActionPill action={String(row.action)} /> : null,
   },
-  { key: 'change_type', header: 'Change Type', width: '120px' },
-  { key: 'system_update', header: 'System', width: '100px' },
-  { key: 'interchange_rate_percent', header: 'Rate %', mono: true, width: '70px' },
-  { key: 'interchange_rate_per_item', header: 'Per Item', mono: true, width: '70px' },
-  { key: 'product_type', header: 'Product', width: '80px' },
-  { key: 'channel', header: 'Channel', width: '120px' },
-  { key: 'regulation_status', header: 'Regulation', width: '110px' },
-  { key: 'mcc_group', header: 'MCC Group', width: '120px' },
+  // 3. Mnemonic
+  { key: 'mnemonic', header: 'Mnemonic', width: '140px' },
+  // 4. Description (ui-approach.md §5 maps to mnemonic_desc)
+  { key: 'mnemonic_desc', header: 'Description', width: '220px' },
+  // 5. MAID — mono
+  { key: 'maid', header: 'MAID', mono: true, width: '80px' },
+  // 6. IRD (Interchange Rate Designator) — mono
+  { key: 'ird', header: 'IRD', mono: true, width: '80px' },
+  // 7. Timeliness
+  { key: 'timeliness', header: 'Timeliness', width: '100px' },
+  // 8. Regulated
+  { key: 'regulation_status', header: 'Regulated', width: '110px' },
+  // 9. POS Entry
+  { key: 'pos_entry', header: 'POS Entry', width: '100px' },
+  // 10. MCC
+  { key: 'mcc', header: 'MCC', width: '80px' },
+  // 11. Break Even
+  { key: 'break_even', header: 'Break Even', mono: true, width: '90px' },
+  // 12. Transaction Type
+  { key: 'transaction_type', header: 'Transaction Type', width: '120px' },
+  // 13. AFS
+  { key: 'afs', header: 'AFS', mono: true, width: '70px' },
+  // 14. Region
+  { key: 'region', header: 'Region', width: '90px' },
+  // 15. Current Rate
+  { key: 'current_rate', header: 'Current Rate', mono: true, width: '90px' },
+  // 16. New Rate
+  { key: 'new_rate', header: 'New Rate', mono: true, width: '90px' },
+  // 17. Deltas — short comma-list of changed field names from delta_report.field_deltas
+  {
+    key: 'deltas', header: 'Deltas', width: '160px',
+    render: (row) => {
+      const fd = row.field_deltas as Record<string, unknown> | undefined
+      if (!fd || typeof fd !== 'object') return ''
+      const keys = Object.keys(fd)
+      return keys.length === 0 ? '' : keys.slice(0, 3).join(', ') + (keys.length > 3 ? '…' : '')
+    },
+  },
+  // 18. Match Tag — mono
+  { key: 'match_tag', header: 'Match Tag', mono: true, width: '120px' },
 ]
 ```
 
@@ -10705,7 +11280,7 @@ The full 18-column spec in the backend has additional fields (breakeven, IRD, et
 
 ## T-H10 — DrawerContent shell
 
-**Depends on:** T-H11, T-H12, T-H13
+**Depends on:** T-H11, T-H12, T-H13, T-H10.5
 **Touches files:** `/web/src/features/runs/components/DrawerContent.tsx`
 **Estimated effort:** small
 
@@ -10746,9 +11321,120 @@ export function DrawerContent({ record }: Props) {
 - [ ] Drawer content renders three panels vertically
 - [ ] Props are passed from the comparison record to each panel
 
+
+## T-H10.5 — RawJsonModal (View Raw Extract debug modal per D-046)
+
+**Depends on:** T-F2, T-7
+**Touches files:** `/web/src/features/runs/components/RawJsonModal.tsx`, `/web/src/features/shared/api/hooks.ts` (modification: add useRawExtract hook)
+
+### Goal
+
+Render a modal showing the raw vision extract (`source_record`) for a
+match_tag, per functional-spec §6.2 third drawer affordance. Triggered
+by a "View Raw Extract" button in DrawerContent header.
+
+### Implementation
+
+Add to `/web/src/features/shared/api/hooks.ts`:
+
+```typescript
+export function useRawExtract(runId: string, matchTag: string) {
+  return useQuery({
+    queryKey: queryKeys.runs.rawExtract(runId, matchTag),
+    queryFn: () => apiClient.get(`/api/runs/${encodeURIComponent(runId)}/raw-extract/${encodeURIComponent(matchTag)}`),
+    enabled: !!runId && !!matchTag,
+  })
+}
+```
+
+**File: `/web/src/features/runs/components/RawJsonModal.tsx`**:
+
+```typescript
+import { useRawExtract } from '@/features/shared/api/hooks'
+
+interface Props { runId: string; matchTag: string; onClose: () => void }
+
+export function RawJsonModal({ runId, matchTag, onClose }: Props) {
+  const { data, isLoading, isError } = useRawExtract(runId, matchTag)
+
+  const handleCopy = () => {
+    if (data) navigator.clipboard.writeText(JSON.stringify(data, null, 2))
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: 720, maxHeight: '80vh', overflowY: 'auto',
+        background: 'var(--bg-elev)', border: '1px solid var(--glass-stroke)',
+        borderRadius: 'var(--radius-lg)', padding: 20,
+        display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
+            Raw Extract: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>{matchTag}</span>
+          </h3>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={handleCopy} disabled={!data} style={{
+              padding: '4px 12px', borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--glass-stroke)', background: 'var(--glass)',
+              color: 'var(--ink-soft)', cursor: data ? 'pointer' : 'not-allowed', fontSize: 12,
+            }}>Copy JSON</button>
+            <button onClick={onClose} style={{
+              padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--glass-stroke)', background: 'transparent',
+              color: 'var(--ink-mute)', cursor: 'pointer', fontSize: 14,
+            }}>×</button>
+          </div>
+        </div>
+        {isLoading && <div style={{ color: 'var(--ink-mute)' }}>Loading raw extract...</div>}
+        {isError && <div style={{ color: 'var(--state-fail)' }}>Could not load raw extract.</div>}
+        {data && (
+          <pre style={{
+            margin: 0, padding: 14, background: 'var(--bg)',
+            borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-stroke)',
+            fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-soft)',
+            whiteSpace: 'pre-wrap', overflowX: 'auto',
+          }}>
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+Amend T-H10 DrawerContent to add "View Raw Extract" button that toggles
+modal visibility. Add `runId` + `matchTag` props to DrawerContent (passed
+from ResultsTab).
+
+### Acceptance criteria
+
+- [ ] Clicking "View Raw Extract" in DrawerContent header opens RawJsonModal
+- [ ] Modal shows the source_record JSON from `GET /api/runs/{run_id}/raw-extract/{match_tag}`
+- [ ] "Copy JSON" button copies the formatted JSON to clipboard
+- [ ] Clicking outside the modal closes it; clicking × button closes it; Escape key support optional
+- [ ] Loading and error states render appropriately
+- [ ] T-E11 raw-extract endpoint is invoked and 404s are surfaced as "Could not load raw extract."
+
+### Notes
+
+This is the third drawer affordance per functional-spec §6.2 (Field
+Deltas → ETL Impact → View Raw Extract JSON). The existing ModFilePanel
+(T-H13) is preserved as supplementary — it shows mod_file_entry (Jira
+output context) which is a DIFFERENT artifact from source_record (raw
+vision extract). Both are useful; tasks.md surfaces both.
+
 ---
 
-## T-H11 — FieldDeltasPanel
+## T-H11 —  FieldDeltasPanel
 
 **Depends on:** T7
 **Touches files:** `/web/src/features/runs/components/FieldDeltasPanel.tsx`
@@ -10867,8 +11553,10 @@ export function ETLImpactPanel({ entries }: Props) {
         {entries.map((entry, i) => (
           <div key={i} style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            padding: '8px 12px', background: 'var(--glass)',
-            borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-stroke)',
+            padding: '8px 12px',
+            borderBottom: '1px solid var(--glass-stroke)',
+            // Flat per D-068 carve-out (T-7 lines 1804–1808): ETL Impact table
+            // renders flat against the navy base, not as glass cards.
           }}>
             <EntryPill entryType={String(entry.entry_type || '')} />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-soft)' }}>
@@ -11071,7 +11759,7 @@ export function JiraInfoPanel({ runId }: Props) {
         {data.epic_key && (
           <div>
             <span style={{ color: 'var(--ink-mute)' }}>Epic: </span>
-            <a href={data.epic_url || '#'} target="_blank" rel="noopener"
+            <a href={data.epic_url || '#'} target="_blank" rel="noopener noreferrer"
               style={{ color: 'var(--cyan)', textDecoration: 'none' }}>
               {data.epic_key}
             </a>
@@ -11080,7 +11768,7 @@ export function JiraInfoPanel({ runId }: Props) {
         {data.story_key && (
           <div>
             <span style={{ color: 'var(--ink-mute)' }}>Story: </span>
-            <a href={data.story_url || '#'} target="_blank" rel="noopener"
+            <a href={data.story_url || '#'} target="_blank" rel="noopener noreferrer"
               style={{ color: 'var(--cyan)', textDecoration: 'none' }}>
               {data.story_key}
             </a>
@@ -12231,3 +12919,121 @@ Lock-held state disables all action buttons across ALL runs, not just the active
 ### Pass criteria
 
 All three MOCK_FAILURE modes produce the expected event sequences, failure.json contents, and state transitions. Lock is always released after each operation. Audit log captures all operator actions.
+
+
+---
+
+## T-K6 — Stale state verification
+
+**Depends on:** All of Sections A-I; T-D3 (Stale fixture)
+**Estimated effort:** verification only (no code)
+
+### Preconditions
+
+- Server running with `ADAPTER_PROFILE=mock`, `MOCK_LATENCY=instant`.
+- T-D3 fixture set includes a `stale_legacy_pre_oct_run/` folder (folder
+  exists; NO `comparison/mod_file_entries.json`; NO `failure.json`; NO
+  `jira_submission_complete.json`; not in locks).
+
+### Steps
+
+1. **Verify Stale fixture is listed.**
+   - [ ] Navigate to `/runs`. Apply state filter chip "Stale".
+   - [ ] The `stale_legacy_pre_oct_run` row appears with a gray "Stale" badge.
+   - [ ] No other runs are visible while the chip is active.
+
+2. **Open the Stale run.**
+   - [ ] Click into Run Detail.
+   - [ ] Header state badge: "Stale" (gray).
+   - [ ] Action buttons: only "Re-run from Scratch" visible; Approve and Retry are absent.
+
+3. **Verify all three tabs render Stale explanatory copy.**
+   - [ ] Activity tab: shared `StaleStatePanel` with copy: *"This run predates the new gated-approval build; event history is not available for this run."*
+   - [ ] Results tab: same StaleStatePanel; no base table rendered.
+   - [ ] Issues tab: same StaleStatePanel; no issues list.
+
+4. **Verify Re-run from Scratch behavior.**
+   - [ ] Click "Re-run from Scratch".
+   - [ ] Confirm dialog → confirm.
+   - [ ] Toast: "Re-run started as {new_run_id}".
+   - [ ] New run appears in Runs List with state "In Progress" (or "Pre-approval" if MOCK_LATENCY=instant).
+   - [ ] Original `stale_legacy_pre_oct_run` folder is PRESERVED in the list (D-041).
+
+### Pass criteria
+
+Stale state renders consistently across Runs List + all three Run Detail
+tabs with the canonical copy from functional-spec §6.1/§6.2/§6.3. Only
+Re-run from Scratch action is available; clicking it produces a fresh
+run folder without deleting the original.
+
+---
+
+## T-K7 — Uvicorn restart recovery (stale lock reaping)
+
+**Depends on:** T-C6, T-D4
+**Estimated effort:** verification only (no code)
+
+### Preconditions
+
+- Server running with `ADAPTER_PROFILE=mock`, `MOCK_LATENCY=realistic`,
+  `MOCK_FAILURE=none`.
+- A terminal where uvicorn was launched (operator can Ctrl+C).
+
+### Steps
+
+1. **Start a run; let it reach mid-execution.**
+   - [ ] From `/runs/new` or the Runs List, start a new run.
+   - [ ] Watch Activity tab; wait until stage_progress(30%) lands (~5–8s with realistic latency).
+   - [ ] Verify lock held: `sqlite3 <SQLITE_DB_PATH> "SELECT id, held, held_by_pid, run_id FROM locks"` → `1|1|<pid>|<run_id>`.
+
+2. **Kill uvicorn mid-run.**
+   - [ ] Ctrl+C in the uvicorn terminal.
+   - [ ] Confirm subprocess dies as parent's child (`ps aux | grep python` shows neither uvicorn nor the run subprocess).
+   - [ ] At this point, `locks` table still shows `held=1` with the dead PID — the row hasn't been cleared yet.
+
+3. **Restart uvicorn.**
+   - [ ] Re-run the uvicorn command. Watch startup logs.
+   - [ ] Look for the reaper log line: *"Reaper: clearing stale lock — pid=X run_id=Y phase=staged operator=Z"*.
+
+4. **Verify post-startup state.**
+   - [ ] `sqlite3 <SQLITE_DB_PATH> "SELECT id, held FROM locks"` → `1|0` (lock cleared).
+   - [ ] `cat <output_folder>/failure.json` → exists; `stage: "staged"`; `error_message` mentions orphan/reaper context; `retry_strategy: "rerun_only"`.
+   - [ ] `sqlite3 <SQLITE_DB_PATH> "SELECT action_type, details_json FROM audit_log WHERE action_type='lock_released' ORDER BY id DESC LIMIT 1"` → row exists with `details_json` containing `"reason": "reaper"` and `"stale_pid": <pid>`.
+
+5. **Verify UI reflects orphaned run as Failed.**
+   - [ ] Navigate to `/runs`. The orphaned run shows state "Failed" (red badge).
+   - [ ] Open Run Detail. Header shows Failed state. FailurePanel renders with the reaper-written error_message.
+   - [ ] Available actions: only "Re-run from Scratch" (retry_strategy=rerun_only).
+
+6. **Verify normal operation resumes.**
+   - [ ] From the Runs List, click "New Run" — the button is enabled (lock cleared).
+   - [ ] Start a new run; verify it acquires the lock and progresses normally.
+
+### Pass criteria
+
+Reaper correctly clears the stale lock at startup, writes failure.json
+into the orphaned run folder, logs to audit_log with `details_json`
+identifying the reaper, and the UI reflects the orphan as Failed. Normal
+operation resumes after the reap.
+
+### Notes (informational, out of MVP scope)
+
+The case where the pipeline subprocess SURVIVES uvicorn restart (detached
+process) is NOT in scope for MVP. `asyncio.create_subprocess_exec` (used
+by T-D4) spawns subprocesses as direct children of uvicorn; they
+terminate with the parent. If V or the partner later requires survival
+semantics, that's a Phase 7+ enhancement requiring a different spawn
+strategy:
+
+- POSIX: `subprocess.Popen(..., start_new_session=True)` plus a separate
+  PID file the reaper consults to verify liveness independent of uvicorn's
+  process tree
+- Windows: `subprocess.Popen(..., creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)`
+
+For MVP, parent-child termination is the documented behavior; T-C6
+reaper handles the resulting orphan locks. The PID-liveness check in
+T-C2 `get_lock_state` correctly distinguishes "lock held by live PID"
+(rare for orphans) from "lock held by dead PID" (the common case after
+crash).
+
+---
