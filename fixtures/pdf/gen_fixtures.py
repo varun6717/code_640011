@@ -1,11 +1,20 @@
 """
 Generate synthetic Payment Brand PDF fixtures for PDLC_App_v2.
 
-Produces:
-  visa_brand_mandate_2026.pdf   — mandate/compliance/brand-rules/certification-heavy
-  mastercard_interchange_spec_2026.pdf — interchange/routing/message-format/reporting-heavy
+Produces two parts of the same Mastercard mandate (MCS-2026-R3) to exercise
+multi-file processing: both files belong to one card brand / one requirement
+so the pipeline must aggregate them. A BRD section loading 'mandate' pulls
+Part 1; a section loading 'message_format' pulls Part 2; a section loading
+'routing' might need both — exactly what selective-read aggregation tests.
 
-Together they exercise all 9 acceptance-required tags:
+  mastercard_mandate_part1_2026.pdf  — mandate/brand-rules/certification-heavy
+      topics: mandate, compliance_deadline, brand_rules, card_brand, certification
+
+  mastercard_mandate_part2_2026.pdf  — technical spec, interchange/routing/format-heavy
+      topics: message_format, interchange_fees, routing, reporting,
+              compliance_deadline, card_brand
+
+Together all 9 acceptance-required tags are covered:
   mandate, compliance_deadline, brand_rules, card_brand, certification,
   routing, message_format, interchange_fees, reporting
 """
@@ -15,339 +24,409 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+MC_RED    = colors.HexColor("#EB001B")
+MC_ORANGE = colors.HexColor("#FF5F00")
+MC_GRAY   = colors.HexColor("#555555")
+MC_LGRAY  = colors.HexColor("#F5F5F5")
+MC_LRED   = colors.HexColor("#FFF5F5")
 
 
 def _styles():
     ss = getSampleStyleSheet()
-    h1 = ParagraphStyle("H1", parent=ss["Heading1"], fontSize=16, spaceAfter=6, spaceBefore=12)
-    h2 = ParagraphStyle("H2", parent=ss["Heading2"], fontSize=13, spaceAfter=4, spaceBefore=10)
-    h3 = ParagraphStyle("H3", parent=ss["Heading3"], fontSize=11, spaceAfter=3, spaceBefore=8)
-    body = ParagraphStyle("Body", parent=ss["Normal"], fontSize=10, leading=14, spaceAfter=6, alignment=TA_JUSTIFY)
-    cover = ParagraphStyle("Cover", parent=ss["Normal"], fontSize=11, alignment=TA_CENTER, spaceAfter=4)
-    label = ParagraphStyle("Label", parent=ss["Normal"], fontSize=9, textColor=colors.HexColor("#555555"), spaceAfter=2)
-    return h1, h2, h3, body, cover, label
+    h1   = ParagraphStyle("H1",   parent=ss["Heading1"], fontSize=16, spaceAfter=6,  spaceBefore=12)
+    h2   = ParagraphStyle("H2",   parent=ss["Heading2"], fontSize=13, spaceAfter=4,  spaceBefore=10)
+    body = ParagraphStyle("Body", parent=ss["Normal"],   fontSize=10, leading=14,    spaceAfter=6, alignment=TA_JUSTIFY)
+    cover= ParagraphStyle("Cover",parent=ss["Normal"],   fontSize=11, alignment=TA_CENTER, spaceAfter=4)
+    return h1, h2, body, cover
 
 
 def _doc(filename, title):
     path = os.path.join(OUT_DIR, filename)
-    doc = SimpleDocTemplate(path, pagesize=LETTER,
-                            leftMargin=1.1*inch, rightMargin=1.1*inch,
-                            topMargin=1*inch, bottomMargin=1*inch,
-                            title=title)
+    doc  = SimpleDocTemplate(path, pagesize=LETTER,
+                             leftMargin=1.1*inch, rightMargin=1.1*inch,
+                             topMargin=1*inch,    bottomMargin=1*inch,
+                             title=title)
     return doc, path
 
 
-def make_visa_mandate():
-    doc, path = _doc("visa_brand_mandate_2026.pdf",
-                     "Visa Merchant Services Brand Mandate VMS-2026-0147")
-    h1, h2, h3, body, cover, label = _styles()
+# ---------------------------------------------------------------------------
+# Part 1 — Mandate overview, brand rules, certification
+# tags: mandate, compliance_deadline, brand_rules, card_brand, certification
+# ---------------------------------------------------------------------------
+def make_part1():
+    doc, path = _doc(
+        "mastercard_mandate_part1_2026.pdf",
+        "Mastercard Brand Implementation Mandate MCS-2026-R3 Part 1 of 2"
+    )
+    h1, h2, body, cover = _styles()
     story = []
 
-    # --- Cover block ---
     story.append(Spacer(1, 0.3*inch))
-    story.append(Paragraph("VISA INC. — MERCHANT SERVICES DIVISION", cover))
+    story.append(Paragraph("MASTERCARD INTERNATIONAL INCORPORATED", cover))
     story.append(Paragraph("<b>Brand Implementation Mandate</b>", cover))
-    story.append(Paragraph("Mandate ID: <b>VMS-2026-0147</b>", cover))
-    story.append(Paragraph("Revision: 2.1 | Classification: Confidential", cover))
-    story.append(Paragraph("Effective Date: 2026-01-15 | <b>Compliance Deadline: 2026-09-30</b>", cover))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#1A1F7C"), spaceAfter=12))
+    story.append(Paragraph("Mandate ID: <b>MCS-2026-R3</b>  |  Part <b>1 of 2</b>: Mandate Overview, Brand Rules &amp; Certification", cover))
+    story.append(Paragraph("Applicable Card Brand: <b>Mastercard</b> (incl. Maestro, Debit Mastercard)", cover))
+    story.append(Paragraph("Version: 1.2  |  Status: Approved-Final  |  <b>Compliance Deadline: 2026-09-30</b>", cover))
+    story.append(HRFlowable(width="100%", thickness=1, color=MC_RED, spaceAfter=12))
     story.append(Spacer(1, 0.1*inch))
 
-    # --- 1. Mandate Summary ---
     story.append(Paragraph("1. Mandate Summary", h1))
     story.append(Paragraph(
-        "This document constitutes a binding brand mandate issued by Visa Inc. to all "
-        "participating Merchant Acquirers and their processing partners under the Visa Core Rules "
-        "and Visa Product and Service Rules (VCRPS). Mandate <b>VMS-2026-0147</b> requires "
-        "implementors to update transaction processing pathways to comply with enhanced Visa "
-        "routing rules for card-present and card-not-present transactions across all <b>card_brand: Visa</b> "
-        "product lines, including Visa Classic, Visa Gold, Visa Infinite, and Visa Business. "
-        "Non-compliance by the stated compliance deadline of <b>2026-09-30</b> will result in "
-        "interchange downgrades, chargeback liability shifts, and potential program suspension per "
-        "Section 12.4 of the Visa Merchant Agreement.", body))
+        "This document is Part 1 of 2 for Mastercard brand mandate <b>MCS-2026-R3</b>. "
+        "It covers the mandate rationale, brand rules, and certification requirements. "
+        "Part 2 of 2 (document MCS-2026-R3-T) contains the technical implementation "
+        "specification including ISO 8583 message format changes, revised interchange fee "
+        "schedules, and Banknet routing updates. Both parts must be read together as a "
+        "single binding requirement.", body))
     story.append(Paragraph(
-        "This mandate supersedes circular VMS-2024-0089 (routing table v4) and must be "
-        "implemented in coordination with the Merchant Services Certification Program described "
-        "in Section 6 of this document. All affected endpoints must pass Visa Certification "
-        "Suite v11.2 prior to production deployment.", body))
+        "Mandate MCS-2026-R3 is issued by Mastercard International Incorporated under "
+        "authority of the Mastercard Rules and the Mastercard Security Rules and Procedures "
+        "and is binding on all Mastercard-licensed acquirers, including JPMC Merchant Services. "
+        "This mandate requires acquirers to update their processing systems to support "
+        "<b>Mastercard Digital Enablement Service (MDES) token-based transactions</b>, "
+        "revised interchange qualification criteria, and enhanced Banknet routing logic for "
+        "Debit Mastercard and Maestro products. Full compliance is required by <b>2026-09-30</b>. "
+        "This mandate supersedes circular MCS-2024-R7 in all matters relating to MDES token "
+        "routing and interchange qualification.", body))
 
-    # --- 2. Scope ---
-    story.append(Paragraph("2. Scope and Applicability", h1))
+    story.append(Paragraph("2. Scope and Affected Card Brands", h1))
     story.append(Paragraph(
-        "This mandate applies to JPMC Merchant Services processing the following Visa card "
-        "product families: <b>Visa Classic</b>, <b>Visa Gold</b>, <b>Visa Infinite</b>, "
-        "<b>Visa Business Debit</b>, and <b>Visa Corporate</b>. Debit transactions routed via "
-        "Interlink and PLUS networks are out of scope; those networks are governed by separate "
-        "mandates. The primary routing change concerns the Brand Authorization Endpoint (BAE) "
-        "selector logic, which must correctly identify and forward transactions to the Visa "
-        "Certified Authorization Platform (VCAP) based on BIN range, product ID, and usage code.", body))
+        "This mandate applies to all transactions bearing the following <b>Mastercard</b> "
+        "card brand identifiers processed through JPMC Merchant Services acquiring infrastructure:", body))
+    story.append(Paragraph(
+        "• <b>Mastercard Credit</b> — all tiers (Standard, World, World Elite, Corporate)<br/>"
+        "• <b>Debit Mastercard</b> — US and international debit products<br/>"
+        "• <b>Maestro</b> — PIN debit, international card-present<br/>"
+        "• <b>Mastercard Commercial</b> — purchasing, fleet, and business cards<br/>"
+        "Prepaid Mastercard products are excluded from MDES token requirements but remain "
+        "subject to interchange and routing changes in Part 2 of this mandate.", body))
+    story.append(Paragraph(
+        "BIN ranges in scope: 510000–559999 (Mastercard Credit/Debit), 600000–699999 (Maestro). "
+        "Token BIN ranges 520000–529999 are specifically in scope for MDES token processing "
+        "requirements. Transactions with primary account numbers outside these ranges "
+        "and not presenting an MDES token are not affected by this mandate.", body))
 
-    # --- 3. Brand Rules ---
     story.append(Paragraph("3. Brand Rules and Operational Constraints", h1))
-    story.append(Paragraph("3.1 Routing Decision Logic", h2))
+    story.append(Paragraph("3.1 MDES Token Handling", h2))
     story.append(Paragraph(
-        "All transactions bearing Visa BIN ranges 4000000–4999999 MUST be routed through the "
-        "primary Visa authorization path. The brand routing decision MUST occur within 50ms of "
-        "transaction receipt and MUST be logged to the audit ledger with a routing reason code. "
-        "Dual-message transactions must retain the authorization hold and settlement record in the "
-        "same processing session. Fallback routing to the secondary VCAP endpoint is permitted "
-        "only upon a verified primary endpoint timeout (≥ 3000ms) and MUST be flagged in the "
-        "authorization response with Response Code 91 ('Issuer or switch is inoperative').", body))
-    story.append(Paragraph("3.2 Card Verification Requirements", h2))
+        "Brand rule BR-01: Acquirers MUST NOT de-tokenize MDES tokens prior to forwarding "
+        "authorization requests to Mastercard Banknet. De-tokenization is the exclusive "
+        "responsibility of the Mastercard Digital Enablement Service and occurs at the Banknet "
+        "gateway. Acquirer systems that strip or substitute token values will receive authorization "
+        "declines with Response Code 14 ('Invalid card number') from the issuer.", body))
     story.append(Paragraph(
-        "Contactless transactions above USD 100.00 MUST request Cardholder Verification Method "
-        "(CVM) results as defined in EMV Contactless Kernel C-2 (Visa payWave). The brand rules "
-        "for CVM processing are: (a) Online PIN preferred for transactions above USD 250.00; "
-        "(b) Signature acceptable as fallback at attended terminals; (c) No CVM permitted only "
-        "for transit/toll scenarios whitelisted in the merchant category code (MCC) table. "
-        "The CVM result byte must be populated in DE 55 (ICC Data) of the authorization request.", body))
-    story.append(Paragraph("3.3 Token Service Provider (TSP) Rules", h2))
+        "Brand rule BR-02: Token Requestor IDs (TRIDs) must be preserved in DE 48.66 through "
+        "the full authorization chain. The TRID identifies the wallet or device that initiated "
+        "the token-based transaction and is required for Mastercard's fraud analytics platform. "
+        "Acquirers sourcing from mobile wallets (Apple Pay, Google Pay, Samsung Pay) MUST "
+        "populate DE 48.66 and DE 48.77 (wallet indicator) as specified in Part 2.", body))
+    story.append(Paragraph("3.2 Cardholder Verification Rules", h2))
     story.append(Paragraph(
-        "Transactions originating from Visa Token Service (VTS) must preserve the Token "
-        "Requestor ID (TRID) and Token Reference ID (TRID) through the full authorization chain. "
-        "The merchant acquirer MUST NOT substitute the token for a PAN prior to forwarding to "
-        "VCAP. De-tokenization is the exclusive responsibility of the Visa Token Service Operator "
-        "as mandated in Visa VTS Implementation Guide v7.3.", body))
+        "Brand rule BR-03: For Mastercard contactless transactions above USD 100.00, the "
+        "terminal MUST request CVM results per EMV Contactless Kernel C-3 (Mastercard "
+        "Contactless Kernel, MCK). Acceptable CVM methods in priority order: (1) Online PIN, "
+        "(2) Offline Enciphered PIN, (3) Signature. No CVM ('NOCVM') is permitted for transit "
+        "and toll MCCs only (MCCs 4111, 4121, 4131, 7523). CVM result must appear in DE 55 "
+        "Tag 9F34 (CVM Results).", body))
+    story.append(Paragraph("3.3 Authorization Timeout and Fallback", h2))
+    story.append(Paragraph(
+        "Brand rule BR-04: If the primary Banknet authorization endpoint does not respond "
+        "within 4000ms, acquirer systems MAY attempt the secondary Banknet endpoint. The "
+        "fallback attempt MUST be logged with reason code T (timeout) in the transaction "
+        "audit record. Stand-in processing (STIP) is available for issuers that have enrolled "
+        "in Mastercard STIP; acquirers MUST forward the authorization to STIP on secondary "
+        "endpoint timeout rather than declining the transaction at the acquiring host.", body))
+    story.append(Paragraph("3.4 Decline Reason Code Updates", h2))
+    story.append(Paragraph(
+        "Brand rule BR-05: Response Code 55 returned for MDES token transactions now indicates "
+        "'Token Assurance Level insufficient' rather than its legacy meaning of 'Incorrect PIN'. "
+        "Acquirer host systems and merchant-facing decline reason engines MUST be updated to "
+        "display 'Unable to process — please retry with chip card' for MC Response Code 55 "
+        "on token transactions (identifiable by MDES token BIN range 520000–529999). "
+        "Failure to distinguish this code will cause incorrect merchant messaging and consumer "
+        "friction that Mastercard monitors via dispute rate metrics.", body))
 
-    # --- 4. Certification Requirements ---
     story.append(Paragraph("4. Certification and Conformance Requirements", h1))
     story.append(Paragraph(
-        "All implementations governed by mandate VMS-2026-0147 MUST obtain Visa Merchant "
-        "Certification (VMC) Level 3 prior to the compliance deadline. The certification process "
-        "comprises three phases:", body))
+        "All acquirers subject to MCS-2026-R3 MUST obtain <b>Mastercard Acquirer Certification "
+        "(MAC) Level 2</b> for MDES token processing before the compliance deadline. "
+        "Certification is administered by the Mastercard Certification Authority (MCA) via "
+        "the Mastercard Connect portal. The certification process has three gates:", body))
     story.append(Paragraph(
-        "<b>Phase 1 — Pre-certification Testing:</b> Acquirer submits test vectors from the Visa "
-        "Certification Suite (VCS) v11.2 test harness. Minimum pass rate: 98% of mandatory test "
-        "cases, 80% of optional test cases.", body))
+        "<b>Gate C1 — Functional Test Suite:</b> Acquirer runs the Mastercard Test Suite (MTS) "
+        "v8.4 test scripts against a UAT environment connected to the Mastercard Simulator. "
+        "Required pass rate: 100% of Category A (mandatory) test cases, 85% of Category B "
+        "(conditional) test cases. MTS v8.4 test scripts are available on Mastercard Connect "
+        "under 'Certification &gt; MDES Token &gt; Acquirer Suite'. Estimated duration: 4 weeks.", body))
     story.append(Paragraph(
-        "<b>Phase 2 — Integration Validation:</b> End-to-end transaction trace submitted to Visa "
-        "Certification Authority (VCA) via the Visa Resolve Online (VROL) portal. Must include "
-        "at least 500 production-representative transactions spanning all product families in scope.", body))
+        "<b>Gate C2 — Interoperability Testing:</b> Acquirer submits 1,000 end-to-end "
+        "transaction traces including MDES token transactions (minimum 300), fallback chip "
+        "transactions (minimum 100), and Regulation II debit routing samples (minimum 50). "
+        "Traces must be submitted via the Mastercard Testing API in JSONL format as specified "
+        "in the MTS Integration Guide v8.4 Appendix D.", body))
     story.append(Paragraph(
-        "<b>Phase 3 — Production Monitoring:</b> 30-day post-deployment monitoring period with "
-        "daily metrics submission to Visa Risk Operations. Any authorization decline rate increase "
-        "exceeding 0.5 percentage points above the 90-day baseline triggers an automatic hold "
-        "pending Visa review. Certification status must be renewed annually.", body))
+        "<b>Gate C3 — Production Validation:</b> 60-day post-certification production monitoring "
+        "period. Mastercard monitors token decline rates, TRID population rates, and DE 48.77 "
+        "coverage via Mastercard Settlement Services data feeds. Any metric exceeding the "
+        "alert threshold triggers a mandatory remediation review within 5 business days. "
+        "MAC Level 2 is revoked if remediation is not completed within 30 calendar days.", body))
     story.append(Paragraph(
-        "Failure to achieve VMC Level 3 by 2026-09-30 results in automatic interchange "
-        "downgrade to unqualified rate tier (currently 1.95% + USD 0.15 per transaction) "
-        "and chargeback liability shift to the acquiring bank.", body))
+        "Acquirers that do not achieve MAC Level 2 by 2026-09-30 will have all Mastercard "
+        "and Maestro transactions automatically downgraded to the Standard non-qualified "
+        "interchange tier and will be placed on a 90-day remediation plan per "
+        "Mastercard Rules Section 9.3.2.", body))
 
-    # --- 5. Compliance Timeline ---
     story.append(Paragraph("5. Compliance Deadline and Milestones", h1))
     tdata = [
         ["Milestone", "Target Date", "Owner"],
-        ["Technical design review complete", "2026-03-31", "JPMC Merchant Tech"],
-        ["VCS v11.2 test harness integration", "2026-05-31", "JPMC QA"],
-        ["Phase 1 certification submitted", "2026-06-30", "JPMC Merchant Tech"],
-        ["Phase 2 integration validation", "2026-08-15", "JPMC + Visa VCA"],
-        ["Production deployment (UAT → PROD)", "2026-09-15", "JPMC Ops"],
-        ["COMPLIANCE DEADLINE (VMS-2026-0147)", "2026-09-30", "All parties"],
+        ["MTS v8.4 test harness provisioned", "2026-04-15", "JPMC Merchant Tech"],
+        ["Gate C1 functional tests complete", "2026-06-15", "JPMC QA"],
+        ["Gate C2 interoperability submission", "2026-07-31", "JPMC + MCA"],
+        ["Production deployment (UAT → PROD)", "2026-09-01", "JPMC Ops"],
+        ["Gate C3 monitoring period begins", "2026-09-01", "MCA"],
+        ["COMPLIANCE DEADLINE (MCS-2026-R3)", "2026-09-30", "All parties"],
     ]
     t = Table(tdata, colWidths=[3.2*inch, 1.5*inch, 2.0*inch])
     t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1A1F7C")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#FFF3CD")),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#F5F5F5")]),
-        ("ALIGN", (1, 0), (1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BACKGROUND",    (0, 0), (-1, 0),  MC_RED),
+        ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
+        ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, -1), 9),
+        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
+        ("BACKGROUND",    (0, -1),(-1, -1), colors.HexColor("#FFF3CD")),
+        ("FONTNAME",      (0, -1),(-1, -1), "Helvetica-Bold"),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -2), [colors.white, MC_LGRAY]),
+        ("ALIGN",         (1, 0), (1, -1),  "CENTER"),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
     story.append(t)
     story.append(Spacer(1, 0.1*inch))
 
-    # --- 6. References ---
     story.append(Paragraph("6. Normative References", h1))
     story.append(Paragraph(
-        "• Visa Core Rules and Visa Product and Service Rules (VCRPS), April 2026 edition<br/>"
-        "• Visa Certification Suite (VCS) v11.2 Test Specification<br/>"
-        "• EMV Contactless Kernel C-2 Specification v2.9 (Visa payWave)<br/>"
-        "• Visa Token Service (VTS) Implementation Guide v7.3<br/>"
-        "• Prior Mandate: VMS-2024-0089 (superseded by this document)<br/>"
-        "• Visa Merchant Agreement, Section 12.4", body))
+        "• Mastercard Rules, April 2026 edition, Section 9.3<br/>"
+        "• Mastercard Security Rules and Procedures v2026-Q1<br/>"
+        "• Mastercard Digital Enablement Service (MDES) Acquirer Implementation Guide v5.2<br/>"
+        "• Mastercard Test Suite (MTS) v8.4 Acquirer Script Package<br/>"
+        "• EMV Contactless Kernel C-3 (Mastercard Contactless Kernel) v3.1<br/>"
+        "• Prior mandate: MCS-2024-R7 (superseded by this document)<br/>"
+        "• Part 2 of this mandate: MCS-2026-R3-T (Technical Specification)", body))
 
     doc.build(story)
     return path
 
 
-def make_mastercard_spec():
-    doc, path = _doc("mastercard_interchange_spec_2026.pdf",
-                     "Mastercard Interchange & Routing Specification Update MCS-2026-R3")
-    h1, h2, h3, body, cover, label = _styles()
+# ---------------------------------------------------------------------------
+# Part 2 — Technical specification: message format, interchange, routing, reporting
+# tags: message_format, interchange_fees, routing, reporting, compliance_deadline, card_brand
+# ---------------------------------------------------------------------------
+def make_part2():
+    doc, path = _doc(
+        "mastercard_mandate_part2_2026.pdf",
+        "Mastercard Brand Implementation Mandate MCS-2026-R3-T Part 2 of 2"
+    )
+    h1, h2, body, cover = _styles()
     story = []
 
-    # --- Cover block ---
     story.append(Spacer(1, 0.3*inch))
     story.append(Paragraph("MASTERCARD INTERNATIONAL INCORPORATED", cover))
-    story.append(Paragraph("<b>Interchange & Routing Technical Specification</b>", cover))
-    story.append(Paragraph("Document: <b>MCS-2026-R3</b>  |  Applicable Card Brand: <b>Mastercard</b>", cover))
-    story.append(Paragraph("Version: 3.0.1 | Status: Approved-Final | Date: 2026-04-01", cover))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#EB001B"), spaceAfter=12))
+    story.append(Paragraph("<b>Technical Implementation Specification</b>", cover))
+    story.append(Paragraph("Mandate ID: <b>MCS-2026-R3-T</b>  |  Part <b>2 of 2</b>: Message Formats, Interchange &amp; Routing", cover))
+    story.append(Paragraph("Applicable Card Brand: <b>Mastercard</b> (incl. Maestro, Debit Mastercard)", cover))
+    story.append(Paragraph("Version: 1.2  |  Status: Approved-Final  |  <b>Network Effective Date: 2026-07-01</b>  |  <b>Compliance Deadline: 2026-09-30</b>", cover))
+    story.append(HRFlowable(width="100%", thickness=1, color=MC_ORANGE, spaceAfter=12))
     story.append(Spacer(1, 0.1*inch))
 
-    # --- 1. Overview ---
-    story.append(Paragraph("1. Overview", h1))
+    story.append(Paragraph("1. Introduction", h1))
     story.append(Paragraph(
-        "This specification defines the updated interchange fee schedules, transaction routing "
-        "rules, message format changes, and reporting obligations applicable to all acquirers "
-        "processing <b>Mastercard</b> and <b>Maestro</b> branded transactions on the Mastercard "
-        "Banknet network effective 2026-07-01. This revision (MCS-2026-R3) supersedes "
-        "MCS-2025-R4 in its entirety and introduces changes in three areas: (1) interchange "
-        "fee table restructuring to reflect enhanced rewards tiers; (2) ISO 8583:2003 field "
-        "additions for digital wallet indicators; (3) mandatory reporting changes for real-time "
-        "payment flows via the Mastercard Send platform.", body))
+        "This document is Part 2 of 2 for Mastercard mandate MCS-2026-R3 and contains the "
+        "normative technical specification. Read in conjunction with Part 1 (MCS-2026-R3), "
+        "which covers mandate overview, brand rules, and certification. The changes in this "
+        "document are effective on the <b>Mastercard</b> network as of <b>2026-07-01</b>; "
+        "JPMC internal compliance deadline is <b>2026-09-30</b>.", body))
 
-    # --- 2. Interchange Fee Schedule ---
-    story.append(Paragraph("2. Interchange Fee Schedule Updates", h1))
-    story.append(Paragraph("2.1 Revised Fee Tiers", h2))
+    story.append(Paragraph("2. ISO 8583 Message Format Changes", h1))
+    story.append(Paragraph("2.1 New Data Elements", h2))
     story.append(Paragraph(
-        "Interchange fees are assessed per transaction and remitted by the acquirer to the "
-        "issuer via the Mastercard Interchange System (MIS). MCS-2026-R3 restructures the "
-        "consumer credit interchange tiers as follows:", body))
-    fee_data = [
-        ["Product Category", "Transaction Type", "Rate (% + USD)", "Effective"],
-        ["Mastercard World Elite", "Card-Present", "2.10% + $0.10", "2026-07-01"],
-        ["Mastercard World Elite", "Card-Not-Present", "2.40% + $0.10", "2026-07-01"],
-        ["Mastercard World", "Card-Present", "1.90% + $0.10", "2026-07-01"],
-        ["Mastercard World", "Card-Not-Present", "2.20% + $0.10", "2026-07-01"],
-        ["Mastercard Standard", "Card-Present", "1.65% + $0.15", "2026-07-01"],
-        ["Mastercard Standard", "Card-Not-Present", "1.85% + $0.15", "2026-07-01"],
-        ["Maestro Debit", "PIN Debit", "0.05% + $0.21", "2026-07-01"],
-        ["Maestro Debit", "Signature Debit", "0.80% + $0.15", "2026-07-01"],
+        "The following new data elements are introduced in ISO 8583:2003 authorization "
+        "(MTI 0100/0110) and financial request (MTI 0200/0210) messages for <b>Mastercard</b> "
+        "transactions effective 2026-07-01:", body))
+    new_de = [
+        ["DE", "Field Name", "Type/Length", "Presence", "Description"],
+        ["DE 48.66", "Token Requestor ID", "N-11", "Conditional", "TRID assigned by MDES to the wallet/device. Required when DE 2 is an MDES token (BIN 520000–529999). Must be preserved end-to-end; do not strip."],
+        ["DE 48.77", "Digital Wallet Indicator", "AN-2", "Conditional", "Wallet type: 01=Apple Pay, 02=Google Pay, 03=Samsung Pay, 04=Masterpass, 05=Other. Required when payment originated from a digital wallet."],
+        ["DE 48.78", "Token Assurance Level", "N-2", "Conditional", "Integer 00–99 from MDES vault indicating strength of token binding. Required when DE 2 is an MDES token. Value below 10 will trigger RC 55 from issuer."],
+        ["DE 48.79", "Device Type", "AN-2", "Optional", "00=POS terminal, 01=Mobile handset, 02=Wearable, 03=IoT device, 04=Browser. Informational; used for Mastercard fraud scoring."],
     ]
-    ft = Table(fee_data, colWidths=[2.2*inch, 1.6*inch, 1.5*inch, 1.2*inch])
+    nt = Table(new_de, colWidths=[0.55*inch, 1.5*inch, 0.85*inch, 0.75*inch, 2.85*inch])
+    nt.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0),  MC_RED),
+        ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
+        ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, -1), 8),
+        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, MC_LRED]),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(nt)
+    story.append(Spacer(1, 0.08*inch))
+
+    story.append(Paragraph("2.2 Modified Data Elements", h2))
+    mod_de = [
+        ["DE", "Field Name", "Change", "Detail"],
+        ["DE 61.8", "POS Environment",       "Value extended", "Bit 3: value '3' now = Soft POS (COTS device running certified payment app). Previously undefined. Implementors must not reject bit 3 = '3'."],
+        ["DE 104", "Transaction Description", "Length + encoding", "Max length: 25 → 40 bytes. Encoding: ASCII → UTF-8. Truncate at 40 bytes (not characters) to avoid splitting multi-byte sequences."],
+        ["DE 55",  "ICC System-Related Data", "New mandatory tag", "EMV tag 9F6E (Enhanced Contactless Reader Capabilities, 4 bytes) is now mandatory for all contactless transactions above USD 50. Absence causes decline RC 96 from Banknet gateway."],
+        ["DE 48.10","Mastercard Assigned ID", "Scope extended",    "Now also required on Maestro transactions in EU/EEA region. Previously Mastercard Credit only."],
+    ]
+    mt2 = Table(mod_de, colWidths=[0.55*inch, 1.6*inch, 1.1*inch, 3.25*inch])
+    mt2.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0),  MC_ORANGE),
+        ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
+        ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, -1), 8),
+        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#FFF8F0")]),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(mt2)
+    story.append(Spacer(1, 0.08*inch))
+
+    story.append(Paragraph("3. Interchange Fee Schedule", h1))
+    story.append(Paragraph("3.1 Revised Consumer Credit Tiers (effective 2026-07-01)", h2))
+    story.append(Paragraph(
+        "Interchange fees are remitted acquirer-to-issuer via the Mastercard Interchange "
+        "System (MIS). MCS-2026-R3 restructures consumer credit tiers to reflect MDES token "
+        "presence and enhanced contactless eligibility. The 'Token Enhanced' column applies "
+        "when DE 48.78 Token Assurance Level ≥ 50:", body))
+    fee_data = [
+        ["Product", "Transaction Type", "Standard Rate", "Token Enhanced Rate", "Effective"],
+        ["MC World Elite", "Card-Present",     "2.10% + $0.10", "1.95% + $0.10", "2026-07-01"],
+        ["MC World Elite", "Card-Not-Present", "2.40% + $0.10", "2.15% + $0.10", "2026-07-01"],
+        ["MC World",       "Card-Present",     "1.90% + $0.10", "1.75% + $0.10", "2026-07-01"],
+        ["MC World",       "Card-Not-Present", "2.20% + $0.10", "1.95% + $0.10", "2026-07-01"],
+        ["MC Standard",    "Card-Present",     "1.65% + $0.15", "1.65% + $0.15", "2026-07-01"],
+        ["MC Standard",    "Card-Not-Present", "1.85% + $0.15", "1.85% + $0.15", "2026-07-01"],
+        ["Debit MC",       "PIN Debit",        "0.05% + $0.21", "0.05% + $0.21", "2026-07-01"],
+        ["Maestro",        "PIN Debit",        "0.05% + $0.21", "0.05% + $0.21", "2026-07-01"],
+    ]
+    ft = Table(fee_data, colWidths=[1.1*inch, 1.3*inch, 1.2*inch, 1.4*inch, 1.0*inch])
     ft.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EB001B")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#FFF5F5")]),
-        ("ALIGN", (2, 0), (3, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BACKGROUND",    (0, 0), (-1, 0),  MC_RED),
+        ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
+        ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, -1), 8.5),
+        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, MC_LRED]),
+        ("ALIGN",         (2, 0), (4, -1),  "CENTER"),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     story.append(ft)
-    story.append(Spacer(1, 0.1*inch))
+    story.append(Spacer(1, 0.08*inch))
     story.append(Paragraph(
-        "Acquirers MUST update their interchange fee calculation engines to apply the new rates "
-        "as of the first transaction processed on 2026-07-01 00:00:00 UTC. Retroactive "
-        "adjustments will not be processed by Mastercard Settlement Services. "
-        "Misclassified interchange will be subject to a USD 0.05 per-transaction correction fee "
-        "assessed in the following settlement cycle.", body))
+        "Acquirers MUST update interchange qualification logic to populate DE 48.78 where "
+        "applicable so that eligible token transactions receive the reduced 'Token Enhanced' "
+        "rate. Failure to populate DE 48.78 will result in Standard rate assessment regardless "
+        "of actual token assurance. Retroactive interchange adjustments are not processed.", body))
 
-    # --- 3. Routing Rules ---
-    story.append(Paragraph("3. Transaction Routing Updates", h1))
-    story.append(Paragraph("3.1 Banknet Routing Selection", h2))
+    story.append(Paragraph("4. Transaction Routing Rules", h1))
+    story.append(Paragraph("4.1 Banknet Endpoint Selection", h2))
     story.append(Paragraph(
-        "Transaction routing to Mastercard Banknet MUST follow the BIN-first routing table "
-        "published in the Mastercard BIN Table (MBT) v2026-Q2. The routing handler MUST "
-        "inspect DE 2 (Primary Account Number) for the 6-digit BIN prefix, look up the "
-        "associated network ID and product type in MBT, and forward to the appropriate "
-        "Banknet authorization endpoint. Routing decisions MUST be immutable after the "
-        "initial selection — mid-transaction re-routing is not permitted under Mastercard "
-        "network rules except in documented timeout failover scenarios.", body))
-    story.append(Paragraph("3.2 Debit Routing Compliance (Regulation II)", h2))
+        "Routing to Mastercard Banknet uses the BIN-first lookup in Mastercard BIN Table "
+        "(MBT) v2026-Q2. The routing handler MUST: (1) extract the 6-digit BIN from DE 2; "
+        "(2) resolve to network ID and product type in MBT; (3) select the Banknet "
+        "authorization endpoint (primary or STIP) based on product type and Regulation II "
+        "routing preference. Routing decisions MUST be immutable once made — mid-transaction "
+        "re-routing is prohibited except on documented primary-endpoint timeout (≥ 4000ms). "
+        "The selected network ID and reason code must be written to the transaction audit "
+        "record within 200ms of routing decision.", body))
+    story.append(Paragraph("4.2 Regulation II (Durbin) Routing for Debit Mastercard", h2))
     story.append(Paragraph(
-        "US debit transactions on Mastercard-branded cards are subject to Regulation II "
-        "(Durbin Amendment) routing requirements. Acquirers MUST offer at least two unaffiliated "
-        "networks for PIN debit routing. JPMC systems MUST configure the routing decision logic "
-        "to evaluate: (1) merchant preference flag from the terminal, (2) issuer routing "
-        "preference from DE 55 ICC data, (3) cost optimization by interchange tier. The routing "
-        "selection must be logged with the selected network ID and reason code in the "
-        "transaction audit record for regulatory examination purposes.", body))
+        "US Debit Mastercard and Maestro transactions are subject to Regulation II "
+        "(Durbin Amendment, 12 CFR Part 235). JPMC MUST ensure: (a) at least two "
+        "unaffiliated networks are available for PIN debit; (b) the routing selection logic "
+        "evaluates merchant preference (terminal flag), issuer routing preference (DE 55 "
+        "ICC data), and cost optimization (interchange tier) in that priority order; "
+        "(c) no routing exclusivity arrangement that limits merchant choice is implemented. "
+        "The routing decision rationale must be preserved in the audit ledger for Federal "
+        "Reserve examination (minimum 3-year retention).", body))
+    story.append(Paragraph("4.3 MDES Token Routing", h2))
+    story.append(Paragraph(
+        "Transactions presenting MDES tokens (BIN 520000–529999 in DE 2) MUST be routed "
+        "exclusively to the Mastercard Banknet MDES gateway (endpoint ID MCB-MDES-01). "
+        "These transactions MUST NOT be routed to acquirer-side processing or alternate "
+        "debit networks. The MDES gateway performs de-tokenization and forwards the "
+        "real PAN to the issuer. Any routing path that bypasses MCB-MDES-01 for token "
+        "BIN ranges will result in a hard decline with Response Code 58 "
+        "('Transaction not permitted to terminal').", body))
 
-    # --- 4. Message Format Changes ---
-    story.append(Paragraph("4. ISO 8583 Message Format Changes", h1))
-    story.append(Paragraph("4.1 New and Modified Data Elements", h2))
-    story.append(Paragraph(
-        "MCS-2026-R3 introduces the following changes to the ISO 8583:2003 message format "
-        "for Mastercard authorization (MTI 0100/0110) and financial request (MTI 0200/0210) "
-        "messages:", body))
-    msg_data = [
-        ["DE", "Field Name", "Change Type", "Description"],
-        ["DE 48.77", "Digital Wallet Indicator", "NEW", "2-byte code identifying wallet type (Apple Pay=01, Google Pay=02, Samsung Pay=03, Masterpass=04)"],
-        ["DE 48.78", "Token Assurance Level", "NEW", "1-byte integer (0-99) from Mastercard MDES token vault; required if DE 2 is a MDES token"],
-        ["DE 61.8", "POS Environment", "MODIFIED", "Bit 3 extended: value '3' now indicates Soft POS (COTS device); previously undefined"],
-        ["DE 104", "Transaction Description", "MODIFIED", "Max length increased from 25 to 40 bytes; UTF-8 encoding now required (was ASCII)"],
-        ["DE 55", "ICC System-Related Data", "MODIFIED", "Tag 9F6E (Enhanced Contactless Reader Capabilities) now mandatory for contactless transactions above USD 50"],
-    ]
-    mt = Table(msg_data, colWidths=[0.6*inch, 1.8*inch, 1.0*inch, 3.1*inch])
-    mt.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FF5F00")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#FFF8F0")]),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("WORDWRAP", (3, 0), (3, -1), True),
-    ]))
-    story.append(mt)
-    story.append(Spacer(1, 0.1*inch))
-    story.append(Paragraph(
-        "All implementations must be capable of parsing and forwarding DE 48.77 and DE 48.78 "
-        "by the effective date. Transactions presenting MDES tokens (identifiable by BIN prefix "
-        "520000–529999) MUST include DE 48.78; absence will result in Response Code 55 "
-        "('Incorrect PIN / PIN tries exceeded') being returned, which is a processing error "
-        "indicator distinct from its literal PIN meaning in this context.", body))
-
-    # --- 5. Reporting Obligations ---
     story.append(Paragraph("5. Reporting and Downstream Data Obligations", h1))
-    story.append(Paragraph("5.1 Daily Settlement Reporting", h2))
+    story.append(Paragraph("5.1 Daily Settlement Report (DSR) Format Changes", h2))
     story.append(Paragraph(
-        "Acquirers must submit the Daily Settlement Report (DSR) to Mastercard Settlement "
-        "Services by 06:00 UTC for the prior processing day. The DSR format changes effective "
-        "2026-07-01: (a) The 'Product Code' column must use the new 4-character product codes "
-        "from MBT v2026-Q2 (previously 2-character); (b) Digital wallet transactions "
-        "(DE 48.77 present) must be reported in a separate 'Digital' subsection with "
-        "wallet-type breakdown. Failure to comply with the reporting format will result in "
-        "settlement holds on the affected batch.", body))
-    story.append(Paragraph("5.2 Regulatory and Compliance Reporting", h2))
+        "Effective 2026-07-01, the DSR submitted to Mastercard Settlement Services by "
+        "06:00 UTC must use the new format: (a) Product Code field extended from 2 to 4 "
+        "characters using MBT v2026-Q2 codes; (b) a new 'Token Flag' column (Y/N) based "
+        "on DE 48.77 presence; (c) wallet-type breakdown sub-section required when any "
+        "token transactions are present in the batch (DE 48.77 codes 01–05 each reported "
+        "separately). DSR files failing format validation will be rejected and the batch "
+        "placed on settlement hold pending resubmission.", body))
+    story.append(Paragraph("5.2 Regulation II Quarterly Compliance Report", h2))
     story.append(Paragraph(
-        "For US debit transactions, acquirers must provide quarterly Regulation II compliance "
-        "reports to Mastercard Compliance by the 15th of the month following each quarter end. "
-        "Reports must include: total transaction count by network, interchange paid by network, "
-        "and routing override counts with justification codes. These reports feed Mastercard's "
-        "downstream analytics platform and are subject to audit by the Federal Reserve under "
-        "Regulation II enforcement authority.", body))
-    story.append(Paragraph("5.3 Real-Time Payment Reporting (Mastercard Send)", h2))
+        "Quarterly Regulation II compliance reports are due to Mastercard Compliance by "
+        "the 15th of the month following each quarter end (Apr 15, Jul 15, Oct 15, Jan 15). "
+        "Required fields: transaction count and interchange paid by network, routing override "
+        "count with justification codes, and a certification statement from the acquirer's "
+        "Chief Compliance Officer. Reports are filed via Mastercard Connect → Compliance → "
+        "Reg II Quarterly Filing. These reports feed Mastercard's downstream analytics "
+        "platform and are subject to Federal Reserve audit.", body))
+    story.append(Paragraph("5.3 MDES Token Coverage Reporting", h2))
     story.append(Paragraph(
-        "Transactions processed via Mastercard Send (push payment) platform must be reported "
-        "in real time to the Mastercard Real-Time Monitoring System (RTMS) via a dedicated "
-        "API endpoint. Each push transaction must include a correlation ID, disbursement amount, "
-        "recipient BIN, and funding source indicator. The RTMS feed is used for fraud "
-        "surveillance and regulatory reporting to FinCEN under the Bank Secrecy Act.", body))
+        "Monthly MDES token coverage reports must be submitted by the 5th of each month "
+        "for the prior month. The report must include: (a) total transaction count; "
+        "(b) token transaction count (DE 48.77 present); (c) token assurance level "
+        "distribution (buckets: 0–9, 10–49, 50–99); (d) DE 48.66 TRID population rate. "
+        "Mastercard will use these metrics to assess compliance with MAC Level 2 "
+        "certification requirements and to identify acquirers at risk of interchange "
+        "downgrade. First report due 2026-10-05 covering September 2026.", body))
 
-    # --- 6. Effective Dates ---
-    story.append(Paragraph("6. Effective Dates and Compliance", h1))
+    story.append(Paragraph("6. Effective Dates and JPMC Internal Deadlines", h1))
     story.append(Paragraph(
-        "All changes in MCS-2026-R3 are effective <b>2026-07-01</b>. Systems not updated by "
-        "this date will receive processing exceptions for transactions using the new DE 48.77 "
-        "and DE 48.78 fields, and interchange will be assessed at the Standard (non-tiered) "
-        "rate. The compliance deadline for all JPMC Merchant Services systems is "
-        "<b>2026-06-20</b> (internal UAT sign-off required 10 days prior to network effective "
-        "date). Questions regarding this specification should be directed to "
-        "Mastercard-Acquirer-Relations@mastercard.com.", body))
+        "Network effective date for all changes in this document: <b>2026-07-01</b>. "
+        "Transactions processed on or after 2026-07-01 must comply with the new message "
+        "format, interchange qualification, and routing rules. JPMC internal UAT sign-off "
+        "deadline: <b>2026-06-20</b> (10 business days before network effective date). "
+        "Full compliance deadline (MAC Level 2 + production monitoring gate C3): "
+        "<b>2026-09-30</b>. See Part 1 (MCS-2026-R3) for the full milestone table.", body))
+
+    story.append(Paragraph("7. Normative References", h1))
+    story.append(Paragraph(
+        "• Mastercard Rules, April 2026 edition, Sections 5.7, 9.3<br/>"
+        "• ISO 8583:2003 Financial transaction card originated messages — interchange message specifications<br/>"
+        "• Mastercard Digital Enablement Service (MDES) Acquirer Implementation Guide v5.2<br/>"
+        "• Mastercard BIN Table (MBT) v2026-Q2<br/>"
+        "• Mastercard Settlement Services Daily Settlement Report Format Guide v2026-07<br/>"
+        "• Regulation II (12 CFR Part 235) — Federal Reserve Debit Card Interchange Fee Standards<br/>"
+        "• EMV Contactless Kernel C-3 (MCK) v3.1<br/>"
+        "• Part 1 of this mandate: MCS-2026-R3 (Mandate Overview, Brand Rules &amp; Certification)", body))
 
     doc.build(story)
     return path
 
 
 if __name__ == "__main__":
-    p1 = make_visa_mandate()
+    p1 = make_part1()
     print(f"Created: {p1}")
-    p2 = make_mastercard_spec()
+    p2 = make_part2()
     print(f"Created: {p2}")
