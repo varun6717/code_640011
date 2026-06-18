@@ -19,7 +19,7 @@ Every task is sized for **one Claude Code session** and carries:
 - **Acceptance** — checkable conditions; the task is done only when all hold.
 - **Fixture / proof** — what demonstrates correctness.
 - **Satisfies** — the FR-ID(s).
-- **Model** — suggested Claude model. `Haiku` = mechanical/transcription; `Sonnet` = code + skill authoring; `Opus` = tasks where a design mistake propagates far or the logic is deeply layered.
+- **Model** — suggested Claude model. `Sonnet` = default for all tasks; `Opus` = tasks where a design mistake propagates far or the logic is deeply layered.
 
 Tick the checkbox in the index below when a task is done, then commit. A fresh session resumes at the first unchecked box.
 
@@ -36,7 +36,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 ## Progress index (tick as you go)
 
 > **Model key — copy any line into a new session and ask "explain this task and confirm the model":**
-> `Haiku` = mechanical/transcription only · `Sonnet` = code, skill authoring, moderate reasoning · `Opus` = deep design artifact or mistake propagates far
+> `Sonnet` = default for all tasks · `Opus` = deep design artifact or mistake propagates far
 
 **Setup**
 - [x] TASK-000 — Repo scaffold: directory tree, .gitkeeps, initial git commit · `Sonnet`
@@ -49,15 +49,15 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-003 — PDF fixtures: 2× Mastercard mandate PDFs + `expected_manifest_entries.json` oracle for TASK-034 · `Sonnet`
 - [ ] TASK-004 — Synthetic Stratus C repo: payment routing code with function-pointer dispatch, macros, `#ifdef` patterns the extractor must handle · `Sonnet`
 - [ ] TASK-005 — Hand-author `expected_code_map.json` against C fixtures; human-signed-off oracle that grades TASK-012 · `Sonnet`
-- [ ] TASK-006 — Check `ctags`/`cscope` on PATH; write `ENV_PRECHECK.md` with version or fallback decision · `Haiku`
-- [ ] TASK-007 — Record Copilot/VDI PASSED 2026-06-16 note in `ENV_PRECHECK.md` (no re-run needed) · `Haiku`
+- [ ] TASK-006 — Check `ctags`/`cscope` on PATH; write `ENV_PRECHECK.md` with version or fallback decision · `Sonnet`
+- [ ] TASK-007 — Record Copilot/VDI PASSED 2026-06-16 note in `ENV_PRECHECK.md` (no re-run needed) · `Sonnet`
 - [ ] TASK-008 — Language detection + dispatcher skeleton in `code_map_build.skill.md`; normalization contract maps any extractor output to §3.3 shape · `Sonnet`
 - [ ] TASK-009 — C extractor: wrap `ctags`/`cscope` → structural fields only; mark function-pointer/macro/`#ifdef` blindspots as `coverage: coarse` · `Sonnet`
 - [ ] TASK-010 — Model-only fallback branch: when no frozen extractor exists, derive structure via model, force all entries `coverage: coarse` · `Sonnet`
 - [ ] TASK-011 — Model enrichment: model sets `purpose`+`tags` only; deterministic `merge_edges`; assert `tags ⊆ vocabulary` · `Sonnet`
 - [ ] TASK-012 — Validate extractor output vs signed-off oracle; meet coverage floor 0.80; human-gate freeze; write `onboarding_manifest.yaml` · `Sonnet`
 - [ ] TASK-013 — 3-branch gate (fully model-free): onboard / reuse-cached / rebuild-changed-files; `REONBOARD_FLAG` if below floor · `Sonnet`
-- [ ] TASK-014 — Transcribe D5 vocabulary table verbatim into `vocabulary.payment_brand.yaml` (12 tags, emitted-by mapping) · `Haiku`
+- [ ] TASK-014 — Transcribe D5 vocabulary table verbatim into `vocabulary.payment_brand.yaml` (12 tags, emitted-by mapping) · `Sonnet`
 - [ ] TASK-015 — Author `brd_profile.payment_brand.yaml`: `must_capture` + `probe_if_missing` per topic per section; foundation every BRD run depends on · `Opus`
 - [ ] TASK-016 — Author `frd_profile.payment_brand.yaml`: same shape + `functional_kind` + `traces_to` resolving to real BRD anchors · `Opus`
 - [ ] TASK-017 — `adapter.yaml` pack manifest + `pdf_extract` skill; surface open flag F1 (`mandate` emitter mismatch) to V · `Sonnet`
@@ -70,7 +70,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [ ] TASK-022 — Run-workspace template under `runs/_template/` + JSON-schema validators for 3 ledger files · `Sonnet`
 - [ ] TASK-023 — `merge_manifest.py`: deterministic fan-in of per-source slices → `index.json`; failed sources marked, never dropped · `Sonnet`
 - [ ] TASK-024 — `hydrate.py`: `git clone` + checkout `registry_sha` + selective copy of `core/`+`profiles/`+`overlays/` into run scaffold · `Sonnet`
-- [ ] TASK-025 — Transcribe D9 block into `overlay_manifest.yaml`: 8 roles, 3 prompt files, per-tool launch · `Haiku`
+- [ ] TASK-025 — Transcribe D9 block into `overlay_manifest.yaml`: 8 roles, 3 prompt files, per-tool launch · `Sonnet`
 - [ ] TASK-026 — One canonical `instruction_file.template.md`; generation emits `CLAUDE.md` or `copilot-instructions.md` by `runtime_tool` · `Sonnet`
 - [ ] TASK-027 — Claude overlay: 8 thin `.md` agent wrappers, each body pointing at one shared `core/skills/` skill · `Sonnet`
 - [ ] TASK-028 — Claude overlay: 3 prompt files (`start-brd/frd/jira`) + `terminal_interactive` launch · `Sonnet`
@@ -202,7 +202,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-006 — `ctags`/`cscope` availability + fallback note
 - **Phase:** P1 · **Depends on:** none.
-- **Model:** Haiku — shell commands to check tool presence + write a short note file
+- **Model:** Sonnet — shell commands to check tool presence + write a short note file
 - **Reads:** `docs/TECH_SPEC.md` §5.2 (`tools_required: [ctags, cscope]`), §5.5/§5.7 (model-only fallback; port-time `port_check`).
 - **Creates / edits:** `docs/ENV_PRECHECK.md` (PATH results + provisioning/fallback decision per tool).
 - **Do:** Confirm the C tooling; record provisioning or the model-only fallback where absent. Note this is a **port-time** check (§5.7), mirrored by the FR-XS-26 allow-list prerequisite.
@@ -212,7 +212,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-007 — Copilot/VDI validation reference (PASSED — do not re-run)
 - **Phase:** P1 · **Depends on:** none.
-- **Model:** Haiku — append a one-line note to an existing file; no reasoning needed
+- **Model:** Sonnet — append a one-line note to an existing file; no reasoning needed
 - **Reads:** `docs/COPILOT_VDI_VALIDATION.md` (runbook + result); `docs/REQUIREMENTS.md` D10 / FR-XS-24.
 - **Creates / edits:** a one-line note in `docs/ENV_PRECHECK.md` citing the **PASSED 2026-06-16** outcome (no new artifact).
 - **Do:** Record the dependency as **satisfied** — command execution + concurrent fan-out confirmed; org policy does not lock approval; allow-list home = **user scope** (FR-XS-26). **Do not re-run as a build task.**
@@ -290,7 +290,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-014 — `vocabulary.payment_brand.yaml` (transcribe D5)
 - **Phase:** P1 · **Depends on:** none.
-- **Model:** Haiku — direct verbatim transcription of the D5 table; zero design decisions
+- **Model:** Sonnet — direct verbatim transcription of the D5 table; zero design decisions
 - **Reads:** `docs/REQUIREMENTS.md` D5 (the 12-tag table + "emitted by" + code-tag flags); `docs/TECH_SPEC.md` §10.1.
 - **Creates / edits:** `core/profiles/payment_brand/vocabulary.payment_brand.yaml`.
 - **Do:** Transcribe the pinned D5 vocabulary verbatim — all 12 tags with the "emitted by" mapping preserved (it is the §10.5 cross-check target).
@@ -408,7 +408,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-025 — `overlay_manifest.yaml` (D9)
 - **Phase:** P2 · **Depends on:** none.
-- **Model:** Haiku — verbatim transcription of the D9 normative block; no decisions to make
+- **Model:** Sonnet — verbatim transcription of the D9 normative block; no decisions to make
 - **Reads:** `docs/REQUIREMENTS.md` D9 / `docs/TECH_SPEC.md` §10.2 (the normative manifest block — 8 roles, 3 prompt files, per-tool launch).
 - **Creates / edits:** `core/overlay_manifest.yaml`.
 - **Do:** Transcribe the D9 block unchanged.
