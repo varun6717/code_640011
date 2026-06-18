@@ -19,6 +19,7 @@ Every task is sized for **one Claude Code session** and carries:
 - **Acceptance** — checkable conditions; the task is done only when all hold.
 - **Fixture / proof** — what demonstrates correctness.
 - **Satisfies** — the FR-ID(s).
+- **Model** — suggested Claude model. `Haiku` = mechanical/transcription; `Sonnet` = code + skill authoring; `Opus` = tasks where a design mistake propagates far or the logic is deeply layered.
 
 Tick the checkbox in the index below when a task is done, then commit. A fresh session resumes at the first unchecked box.
 
@@ -34,67 +35,70 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 
 ## Progress index (tick as you go)
 
+> **Model key — copy any line into a new session and ask "explain this task and confirm the model":**
+> `Haiku` = mechanical/transcription only · `Sonnet` = code, skill authoring, moderate reasoning · `Opus` = deep design artifact or mistake propagates far
+
 **Setup**
-- [x] TASK-000 — Repository scaffold + docs + CLAUDE.md
+- [x] TASK-000 — Repo scaffold: directory tree, .gitkeeps, initial git commit · `Sonnet`
 
 **Phase 0 — UI / input-contract design (in CHAT as `.jsx`, not Claude Code)**
-- [x] TASK-001 — UI pattern library
-- [x] TASK-002 — UI screens → locked `UI_INPUT.yaml`
+- [x] TASK-001 — UI pattern library: locked interaction patterns every screen composes from (chat/JSX only) · `N/A`
+- [x] TASK-002 — UI screens → locked `UI_INPUT.yaml` contract (chat/JSX only) · `N/A`
 
 **Phase 1 — Pre-tasks**
-- [x] TASK-003 — PDF input fixture(s)
-- [ ] TASK-004 — Stratus C-pattern catalog → `.c`/`.h` fixtures
-- [ ] TASK-005 — Signed-off expected `code_map` (regression oracle)
-- [ ] TASK-006 — `ctags`/`cscope` availability + fallback note
-- [ ] TASK-007 — Copilot/VDI validation reference (PASSED — do not re-run)
-- [ ] TASK-008 — Language detection + dispatcher (normalization contract)
-- [ ] TASK-009 — C extractor (ctags/cscope → structural fields)
-- [ ] TASK-010 — Model-only fallback path
-- [ ] TASK-011 — Model enrichment (`purpose`+`tags`) + `merge_edges` + vocab assert
-- [ ] TASK-012 — Validate vs oracle · freeze · `onboarding_manifest.yaml`
-- [ ] TASK-013 — 3-branch gate (model-free) + re-onboard flag
-- [ ] TASK-014 — `vocabulary.payment_brand.yaml` (transcribe D5)
-- [ ] TASK-015 — `brd_profile.payment_brand.yaml` (D1)
-- [ ] TASK-016 — `frd_profile.payment_brand.yaml` (D3a)
-- [ ] TASK-017 — `adapter.yaml` + `pdf_extract` skill
-- [ ] TASK-018 — `article_summarize` skill
-- [ ] TASK-019 — `change_type_assess` skill
-- [ ] TASK-020 — Slice-1 connectors (`clone.py` + document/PDF source)
-- [ ] TASK-021 — Domain-seam build checks (§10.3/10.4/10.5) green
+- [x] TASK-003 — PDF fixtures: 2× Mastercard mandate PDFs + `expected_manifest_entries.json` oracle for TASK-034 · `Sonnet`
+- [ ] TASK-004 — Synthetic Stratus C repo: payment routing code with function-pointer dispatch, macros, `#ifdef` patterns the extractor must handle · `Sonnet`
+- [ ] TASK-005 — Hand-author `expected_code_map.json` against C fixtures; human-signed-off oracle that grades TASK-012 · `Sonnet`
+- [ ] TASK-006 — Check `ctags`/`cscope` on PATH; write `ENV_PRECHECK.md` with version or fallback decision · `Haiku`
+- [ ] TASK-007 — Record Copilot/VDI PASSED 2026-06-16 note in `ENV_PRECHECK.md` (no re-run needed) · `Haiku`
+- [ ] TASK-008 — Language detection + dispatcher skeleton in `code_map_build.skill.md`; normalization contract maps any extractor output to §3.3 shape · `Sonnet`
+- [ ] TASK-009 — C extractor: wrap `ctags`/`cscope` → structural fields only; mark function-pointer/macro/`#ifdef` blindspots as `coverage: coarse` · `Sonnet`
+- [ ] TASK-010 — Model-only fallback branch: when no frozen extractor exists, derive structure via model, force all entries `coverage: coarse` · `Sonnet`
+- [ ] TASK-011 — Model enrichment: model sets `purpose`+`tags` only; deterministic `merge_edges`; assert `tags ⊆ vocabulary` · `Sonnet`
+- [ ] TASK-012 — Validate extractor output vs signed-off oracle; meet coverage floor 0.80; human-gate freeze; write `onboarding_manifest.yaml` · `Sonnet`
+- [ ] TASK-013 — 3-branch gate (fully model-free): onboard / reuse-cached / rebuild-changed-files; `REONBOARD_FLAG` if below floor · `Sonnet`
+- [ ] TASK-014 — Transcribe D5 vocabulary table verbatim into `vocabulary.payment_brand.yaml` (12 tags, emitted-by mapping) · `Haiku`
+- [ ] TASK-015 — Author `brd_profile.payment_brand.yaml`: `must_capture` + `probe_if_missing` per topic per section; foundation every BRD run depends on · `Opus`
+- [ ] TASK-016 — Author `frd_profile.payment_brand.yaml`: same shape + `functional_kind` + `traces_to` resolving to real BRD anchors · `Opus`
+- [ ] TASK-017 — `adapter.yaml` pack manifest + `pdf_extract` skill; surface open flag F1 (`mandate` emitter mismatch) to V · `Sonnet`
+- [ ] TASK-018 — `article_summarize` skill: emits `brand_rules`, `message_format`, `interchange_fees`, `reporting` (reconcile F1) · `Sonnet`
+- [ ] TASK-019 — `change_type_assess` skill: emits `mandate`, `card_brand`, `routing`, `certification`, `compliance_deadline` (reconcile F1) · `Sonnet`
+- [ ] TASK-020 — Two generic source-type-keyed connectors: `clone.py` (Bitbucket) + `ingest_sharepoint.py` (or direct-file PDF) · `Sonnet`
+- [ ] TASK-021 — Verify §10.3/10.4/10.5 domain-seam build checks all green; F1 reconciled before proceeding · `Sonnet`
 
 **Phase 2 — Core scaffold & runtime-tool seam**
-- [ ] TASK-022 — Run-workspace layout + ledger init
-- [ ] TASK-023 — `merge_manifest.py`
-- [ ] TASK-024 — `hydrate.py`
-- [ ] TASK-025 — `overlay_manifest.yaml` (D9)
-- [ ] TASK-026 — `instruction_file.template.md` + generation
-- [ ] TASK-027 — Claude overlay: agent wrappers
-- [ ] TASK-028 — Claude overlay: prompt files + launch
-- [ ] TASK-029 — Copilot overlay: agent wrappers
-- [ ] TASK-030 — Copilot overlay: prompt files + launch
-- [ ] TASK-031 — Scaffolder / Generate (two-step) + G0
-- [ ] TASK-032 — `telemetry.emit()` + ledger writers
+- [ ] TASK-022 — Run-workspace template under `runs/_template/` + JSON-schema validators for 3 ledger files · `Sonnet`
+- [ ] TASK-023 — `merge_manifest.py`: deterministic fan-in of per-source slices → `index.json`; failed sources marked, never dropped · `Sonnet`
+- [ ] TASK-024 — `hydrate.py`: `git clone` + checkout `registry_sha` + selective copy of `core/`+`profiles/`+`overlays/` into run scaffold · `Sonnet`
+- [ ] TASK-025 — Transcribe D9 block into `overlay_manifest.yaml`: 8 roles, 3 prompt files, per-tool launch · `Haiku`
+- [ ] TASK-026 — One canonical `instruction_file.template.md`; generation emits `CLAUDE.md` or `copilot-instructions.md` by `runtime_tool` · `Sonnet`
+- [ ] TASK-027 — Claude overlay: 8 thin `.md` agent wrappers, each body pointing at one shared `core/skills/` skill · `Sonnet`
+- [ ] TASK-028 — Claude overlay: 3 prompt files (`start-brd/frd/jira`) + `terminal_interactive` launch · `Sonnet`
+- [ ] TASK-029 — Copilot overlay: parity twin of TASK-027 in native Copilot syntax (frontmatter + location differ) · `Sonnet`
+- [ ] TASK-030 — Copilot overlay: parity twin of TASK-028 with `agent_mode` launch + `Ctrl+N` gesture · `Sonnet`
+- [ ] TASK-031 — `generate.py` scaffolder: deterministic Generate → run workspace + instruction file + G0 inspection checkpoint · `Opus`
+- [ ] TASK-032 — `telemetry.py`: `emit()` + `decisions.jsonl` writer + `run_state.json` updater covering all §8.1 events · `Sonnet`
 
 **Phase 3 — Framework build: the spine**
-- [ ] TASK-033 — `source_processor` (fan-out, failure-isolated)
-- [ ] TASK-034 — Document pipeline execution (extract→summarize→classify)
-- [ ] TASK-035 — Repo clone + `merge_manifest` → `index.json`
-- [ ] TASK-036 — `code_map_build` skill (frozen extractor + gate → `code_map.json`)
-- [ ] TASK-037 — `brd_author`: baseline+profile merge + discovery
-- [ ] TASK-038 — `brd_author`: section-by-section authoring loop
-- [ ] TASK-039 — `brd_author`: cite-or-flag grounding + revisit/shared-memory
-- [ ] TASK-040 — `code_impact`: coarse pass (map-only)
-- [ ] TASK-041 — `code_impact`: deep pass + required Flags
-- [ ] TASK-042 — `brd_author`: human-mediated flag loop + material threshold
-- [ ] TASK-043 — `brd_validator` + G1
-- [ ] TASK-044 — `frd_author` (consume BRD vN; `traces_to`; detailed impact)
-- [ ] TASK-045 — `frd_validator` + G2
+- [ ] TASK-033 — `source_processor` skill: fan-out worker per source; failure-isolated; reads `adapter.yaml` for run order; no domain knowledge · `Opus`
+- [ ] TASK-034 — Run `pdf_extract`→`article_summarize`→`change_type_assess` over PDF fixtures; verify entries vs `expected_manifest_entries.json` · `Sonnet`
+- [ ] TASK-035 — Clone SEAL-ID repo + run `merge_manifest.py` → assembled `index.json` with `sources_status` · `Sonnet`
+- [ ] TASK-036 — `code_map_build` skill: drive frozen extractor through 3-branch gate → `code_map.json` per §3.3 · `Sonnet`
+- [ ] TASK-037 — `brd_author`: deterministic baseline+profile merge + discovery framing (2–3 questions, seed coarse code pass) · `Opus`
+- [ ] TASK-038 — `brd_author`: per-section authoring loop; §3.2 selective-read routing; `must_capture` check; probe gaps; coverage footer · `Opus`
+- [ ] TASK-039 — `brd_author`: cite-or-flag grounding rules; revisit/shared-memory (never re-ask answered questions) · `Sonnet`
+- [ ] TASK-040 — `code_impact` coarse pass: map-only, no source files; match requirement topics × `code_map` tags → ranked candidate areas · `Sonnet`
+- [ ] TASK-041 — `code_impact` deep pass: selective-read flagged slice from `repo/`; trace real closure; emit Flags schema every run · `Opus`
+- [ ] TASK-042 — `brd_author` flag loop: surface→wait→apply→conditional re-run; material vs advisory per D6c; no auto scope changes · `Opus`
+- [ ] TASK-043 — `brd_validator` + G1: score = 0.7×topic_coverage + 0.3×citation_integrity; hard preconditions on required topics + flags · `Sonnet`
+- [ ] TASK-044 — `frd_author` skill: consume accepted BRD; `traces_to`; carry file/function detail forward that BRD stays silent on · `Opus`
+- [ ] TASK-045 — `frd_validator` + G2: score = 0.5×traceability + 0.5×testability; hard precondition every BRD requirement traced · `Sonnet`
 
 **Phase 4 — Build harness & acceptance**
-- [ ] TASK-046 — §10.1 vocabulary containment check
-- [ ] TASK-047 — §10.2 overlay parity check
-- [ ] TASK-048 — `build_checks.py` runner (all five) + `metrics_scan.py`
-- [ ] TASK-049 — Spine end-to-end acceptance (PDF + repo → BRD vN → FRD)
+- [ ] TASK-046 — `check_vocab_containment.py`: assert all profile topics + adapter tags ∈ `vocabulary.payment_brand.yaml` · `Sonnet`
+- [ ] TASK-047 — `check_overlay_parity.py`: both overlays expose all 8 manifest roles pointing at same shared skills · `Sonnet`
+- [ ] TASK-048 — `build_checks.py` runner (all five checks) + `metrics_scan.py` deriving all MVP metrics from `telemetry.jsonl` · `Sonnet`
+- [ ] TASK-049 — End-to-end acceptance: PDF + repo → BRD vN → FRD; flag loop + G1 reopen; `build_checks.py` green · `Opus`
 
 **Phase 5 — Deferred follow-on (named only; see end of file)**
 
@@ -103,7 +107,8 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 # Setup
 
 ### TASK-000 — Repository scaffold + docs + CLAUDE.md
-- **Phase:** Setup · **Depends on:** none (this is first). On disk to start: `CLAUDE.md`, `TASK_LIST.md`, `docs/` already present (from the starter zip).
+- **Phase:** Setup · **Depends on:** none
+- **Model:** Sonnet — mechanical directory creation and git init; no design decisions (this is first). On disk to start: `CLAUDE.md`, `TASK_LIST.md`, `docs/` already present (from the starter zip).
 - **Reads:** `docs/TECH_SPEC.md` §2.1 (registry layout) and §2.2 (run-workspace layout) — the exact directory tree; `docs/TECH_SPEC.md` Appendix B (hydration — for context only; the external repo *is* the working tree, so no registry clone is performed here).
 - **Creates / edits:** the on-disk skeleton —
   ```
@@ -165,6 +170,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-003 — PDF input fixture(s)
 - **Phase:** P1 · **Depends on:** none.
+- **Model:** Sonnet — synthetic PDF content generation; no deep reasoning needed
 - **Reads:** `docs/REQUIREMENTS.md` D5 (the 12-tag vocabulary table — which tags the doc pipeline must be able to surface); `docs/TECH_SPEC.md` §3.2 (`index.json` provenance + `topics`).
 - **Creates / edits:** `fixtures/pdf/<name>.pdf` + `fixtures/pdf/expected_manifest_entries.json`.
 - **Do:** Produce representative Payment Brand PDF(s) (a mandate/spec article) plus the expected `index.json` entries (topics + descriptor) each should yield.
@@ -174,6 +180,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-004 — Stratus C-pattern catalog → `.c`/`.h` fixtures
 - **Phase:** P1 · **Depends on:** none.
+- **Model:** Sonnet — writing realistic C code with specific structural patterns; no deep design decisions
 - **Reads:** `docs/TECH_SPEC.md` §3.3 (`code_map.json` file-entry schema); §5.5 (normalization contract — what the extractor must emit).
 - **Creates / edits:** `fixtures/c_repo/**` (`.c`/`.h` tree) + `fixtures/c_repo/PATTERN_CATALOG.md` (screenshot-sourced inventory).
 - **Do:** Inventory real Stratus C patterns → bring them out as screenshots → synthesize into `.c`/`.h` fixtures. **Deliberately include the hard patterns**: function pointers, macros, `#ifdef`, Stratus header/include idioms.
@@ -182,7 +189,8 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Satisfies:** FR-DC-13, FR-DC-16, FR-DC-17.
 
 ### TASK-005 — Signed-off expected `code_map` (regression oracle)
-- **Phase:** P1 · **Depends on:** TASK-004 (`fixtures/c_repo/`).
+- **Phase:** P1 · **Depends on:** TASK-004
+- **Model:** Sonnet — careful JSON authoring per §3.3 schema; human must review and sign off (`fixtures/c_repo/`).
 - **Reads:** `docs/TECH_SPEC.md` §3.3 (normative `code_map.json`); `docs/REQUIREMENTS.md` D5 (tag set).
 - **Creates / edits:** `fixtures/c_repo/expected_code_map.json` + `fixtures/c_repo/SIGNOFF.md` (who/when).
 - **Do:** Author the **human-signed-off** expected `code_map.json` for the TASK-004 fixtures — the regression set that defines "correct."
@@ -194,6 +202,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-006 — `ctags`/`cscope` availability + fallback note
 - **Phase:** P1 · **Depends on:** none.
+- **Model:** Haiku — shell commands to check tool presence + write a short note file
 - **Reads:** `docs/TECH_SPEC.md` §5.2 (`tools_required: [ctags, cscope]`), §5.5/§5.7 (model-only fallback; port-time `port_check`).
 - **Creates / edits:** `docs/ENV_PRECHECK.md` (PATH results + provisioning/fallback decision per tool).
 - **Do:** Confirm the C tooling; record provisioning or the model-only fallback where absent. Note this is a **port-time** check (§5.7), mirrored by the FR-XS-26 allow-list prerequisite.
@@ -203,6 +212,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-007 — Copilot/VDI validation reference (PASSED — do not re-run)
 - **Phase:** P1 · **Depends on:** none.
+- **Model:** Haiku — append a one-line note to an existing file; no reasoning needed
 - **Reads:** `docs/COPILOT_VDI_VALIDATION.md` (runbook + result); `docs/REQUIREMENTS.md` D10 / FR-XS-24.
 - **Creates / edits:** a one-line note in `docs/ENV_PRECHECK.md` citing the **PASSED 2026-06-16** outcome (no new artifact).
 - **Do:** Record the dependency as **satisfied** — command execution + concurrent fan-out confirmed; org policy does not lock approval; allow-list home = **user scope** (FR-XS-26). **Do not re-run as a build task.**
@@ -216,6 +226,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-008 — Language detection + dispatcher (normalization contract)
 - **Phase:** P1 · **Depends on:** none.
+- **Model:** Sonnet — Python dispatcher logic + skill markdown; clear spec in §5.5
 - **Reads:** `docs/TECH_SPEC.md` §5.5 (the `dispatch()` pseudocode + normalization contract), §5.1 (terms), §3.3 (file-entry schema).
 - **Creates / edits:** `core/skills/code_map_build.skill.md` (refine the seed `docs/code_map_build.skill.md`) — the dispatcher portion: `detect_language` → `extractor_for(L)` → `normalize` → `merge_edges`; and a thin `core/extractors/__init__` registration point.
 - **Do:** Implement deterministic language detection (file-glob histogram + build-manifest signals) and the dispatch skeleton that routes to a per-language extractor and normalizes its output to the §3.3 file-entry shape.
@@ -224,7 +235,8 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Satisfies:** FR-DC-15, FR-DC-17.
 
 ### TASK-009 — C extractor (ctags/cscope → structural fields)
-- **Phase:** P1 · **Depends on:** TASK-008 (dispatcher), TASK-004 (`fixtures/c_repo/`).
+- **Phase:** P1 · **Depends on:** TASK-008
+- **Model:** Sonnet — Python wrapper around ctags/cscope; clear input/output contract in §5.5 (dispatcher), TASK-004 (`fixtures/c_repo/`).
 - **Reads:** `docs/TECH_SPEC.md` §5.5 (extractor owns structural fields only), §3.3 (file-entry schema, `coverage_report`); `docs/REQUIREMENTS.md` FR-DC-17.
 - **Creates / edits:** `core/extractors/c_extractor.py` (+ tool shims).
 - **Do:** Wrap `ctags`/`cscope` to pull **structural fields only** (`path/module/interfaces/depends_on/used_by`) and emit a `coverage_report`. Mark static-analysis blind spots (function pointers/macros/`#ifdef`) as `coverage: coarse` with `unresolved_patterns`.
@@ -234,6 +246,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-010 — Model-only fallback path
 - **Phase:** P1 · **Depends on:** TASK-008.
+- **Model:** Sonnet — adding a fallback branch to an existing skill file; logic is clearly defined in §5.5
 - **Reads:** `docs/TECH_SPEC.md` §5.5 (`model_fallback`), §5.7 (safety net); `docs/REQUIREMENTS.md` FR-DC-17.
 - **Creates / edits:** the fallback branch in `core/skills/code_map_build.skill.md`.
 - **Do:** When no frozen extractor exists for a language, derive structure via the model and mark **all** entries `coverage: coarse` + force top-level coverage coarse.
@@ -242,7 +255,8 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Satisfies:** FR-DC-17.
 
 ### TASK-011 — Model enrichment (`purpose`+`tags`) + `merge_edges` + vocab assert
-- **Phase:** P1 · **Depends on:** TASK-009, TASK-014 (vocabulary — author it first if not done; or stub-assert and re-check at TASK-021).
+- **Phase:** P1 · **Depends on:** TASK-009
+- **Model:** Sonnet — enrichment step + deterministic merge logic; division of labor clearly pinned in §5.5, TASK-014 (vocabulary — author it first if not done; or stub-assert and re-check at TASK-021).
 - **Reads:** `docs/TECH_SPEC.md` §5.5 (model owns `purpose`+`tags` only; `merge_edges` deterministic; `assert tags ⊆ domain_vocabulary`), §3.3; `docs/REQUIREMENTS.md` D5, FR-DC-17.
 - **Creates / edits:** the enrichment + edge-merge steps in `core/skills/code_map_build.skill.md`.
 - **Do:** For each extractor entry, the **model sets `purpose` and `tags` only**; assert `tags ⊆ vocabulary`; run deterministic `merge_edges` (match `depends_on ↔ used_by` for closure).
@@ -251,7 +265,8 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Satisfies:** FR-DC-17, FR-DC-09.
 
 ### TASK-012 — Validate vs oracle · freeze · `onboarding_manifest.yaml`
-- **Phase:** P1 · **Depends on:** TASK-009, TASK-011, TASK-005 (oracle).
+- **Phase:** P1 · **Depends on:** TASK-009
+- **Model:** Sonnet — validation script + YAML manifest; human must approve the freeze commit, TASK-011, TASK-005 (oracle).
 - **Reads:** `docs/TECH_SPEC.md` §5.2 (`onboarding_manifest.yaml` schema), §5.4 (coverage floor 0.80); `docs/REQUIREMENTS.md` FR-DC-14, FR-DC-16.
 - **Creates / edits:** `core/onboarding_manifest.yaml`; freeze-commit `core/extractors/c_extractor.py`.
 - **Do:** Validate extractor output against the **signed-off** `fixtures/c_repo/expected_code_map.json`; meet `coverage_floor`; **human-gate the freeze** and record the manifest (`extractor_sha`, `tools_required`, `file_globs`, `coverage_floor`, `frozen_at`, `frozen_by`).
@@ -260,7 +275,8 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Satisfies:** FR-DC-14, FR-DC-16.
 
 ### TASK-013 — 3-branch gate (model-free) + re-onboard flag
-- **Phase:** P1 · **Depends on:** TASK-012 (`onboarding_manifest.yaml`).
+- **Phase:** P1 · **Depends on:** TASK-012
+- **Model:** Sonnet — gate algorithm is fully specified in §5.3; deterministic logic, no judgment calls (`onboarding_manifest.yaml`).
 - **Reads:** `docs/TECH_SPEC.md` §5.3 (the 3-branch `GATE` algorithm — onboard / reuse / rebuild), §5.4 (coverage check); §3.6 (`reonboard_flag`); `docs/REQUIREMENTS.md` FR-DC-15, FR-DC-16.
 - **Creates / edits:** the gate logic in `core/skills/code_map_build.skill.md`; a `reonboard_flag` writer into `decisions.jsonl`.
 - **Do:** Implement the gate using **only** deterministic signals (language detection, extractor presence, content hash, `extractor_sha`). Branch A onboard / B reuse-cached / C rebuild-changed-files-only; coverage<floor → `REONBOARD_FLAG`.
@@ -274,6 +290,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-014 — `vocabulary.payment_brand.yaml` (transcribe D5)
 - **Phase:** P1 · **Depends on:** none.
+- **Model:** Haiku — direct verbatim transcription of the D5 table; zero design decisions
 - **Reads:** `docs/REQUIREMENTS.md` D5 (the 12-tag table + "emitted by" + code-tag flags); `docs/TECH_SPEC.md` §10.1.
 - **Creates / edits:** `core/profiles/payment_brand/vocabulary.payment_brand.yaml`.
 - **Do:** Transcribe the pinned D5 vocabulary verbatim — all 12 tags with the "emitted by" mapping preserved (it is the §10.5 cross-check target).
@@ -283,6 +300,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-015 — `brd_profile.payment_brand.yaml` (D1)
 - **Phase:** P1 · **Depends on:** TASK-014.
+- **Model:** Opus — every `must_capture` + `probe_if_missing` written here is the completeness contract for every BRD run; a weak probe or wrong topic here propagates to every session that writes a BRD
 - **Reads:** `docs/REQUIREMENTS.md` D1 (normative section schema), FR-BR-10, D2 (baseline stays inline in author skill); `docs/TECH_SPEC.md` §6.1.
 - **Creates / edits:** `core/profiles/payment_brand/brd_profile.payment_brand.yaml`.
 - **Do:** Author per-section `sources` + `requirements{topic, must_capture, probe_if_missing, required}`; topics implicit from `requirements[].topic` (no `topics:` field). Route the code-impact section to `source: bitbucket` (drives FR-BR-07).
@@ -292,6 +310,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-016 — `frd_profile.payment_brand.yaml` (D3a)
 - **Phase:** P1 · **Depends on:** TASK-014, TASK-015.
+- **Model:** Opus — same stakes as TASK-015 plus `traces_to` must resolve to real BRD anchors; bad traces break `frd_validator` traceability score at G2
 - **Reads:** `docs/REQUIREMENTS.md` D3a (normative), FR-FR-06; `docs/TECH_SPEC.md` §9.3 (testability by `functional_kind`).
 - **Creates / edits:** `core/profiles/payment_brand/frd_profile.payment_brand.yaml`.
 - **Do:** BRD-profile shape + per-section `functional_kind` + per-topic mandatory `traces_to` (resolving to real BRD anchors in TASK-015's profile).
@@ -301,6 +320,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-017 — `adapter.yaml` + `pdf_extract` skill
 - **Phase:** P1 · **Depends on:** TASK-014.
+- **Model:** Sonnet — YAML pack manifest + one skill file; must surface F1 flag, not resolve it
 - **Reads:** `docs/TECH_SPEC.md` §6.6.3 (normative `adapter.yaml` + the `payment_brand` instance, incl. `emits` per skill), §10.5; `docs/REQUIREMENTS.md` D5 "emitted by".
 - **Creates / edits:** `core/profiles/payment_brand/adapter/adapter.yaml` + `.../adapter/pdf_extract.skill.md`.
 - **Do:** Author the pack manifest (`docs_pipeline` ordered; `code_pipeline` → the shared `core/skills/code_map_build.skill.md`) and the `pdf_extract` skill (`emits: []` — structural extraction, no tags).
@@ -310,6 +330,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-018 — `article_summarize` skill
 - **Phase:** P1 · **Depends on:** TASK-017.
+- **Model:** Sonnet — skill markdown authoring; emit tags are pinned by §6.6.3 and D5
 - **Reads:** `docs/TECH_SPEC.md` §6.6.3 (`article_summarize.emits`); `docs/REQUIREMENTS.md` D5.
 - **Creates / edits:** `core/profiles/payment_brand/adapter/article_summarize.skill.md`.
 - **Do:** Author the doc-summarization skill emitting `[brand_rules, message_format, interchange_fees, reporting]` (per §6.6.3; reconcile against F1 outcome).
@@ -319,6 +340,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-019 — `change_type_assess` skill
 - **Phase:** P1 · **Depends on:** TASK-017.
+- **Model:** Sonnet — skill markdown authoring; emit tags are pinned by §6.6.3 and D5
 - **Reads:** `docs/TECH_SPEC.md` §6.6.3 (`change_type_assess.emits`); `docs/REQUIREMENTS.md` D5.
 - **Creates / edits:** `core/profiles/payment_brand/adapter/change_type_assess.skill.md`.
 - **Do:** Author the classify/assess skill emitting `[mandate, card_brand, routing, certification, compliance_deadline]` (per §6.6.3; reconcile F1).
@@ -328,6 +350,7 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ### TASK-020 — Slice-1 connectors (`clone.py` + document/PDF source)
 - **Phase:** P1 · **Depends on:** none.
+- **Model:** Sonnet — two straightforward Python connector scripts; contract in §6.6.2
 - **Reads:** `docs/TECH_SPEC.md` §6.6.2 (connector contract), §10.4; `docs/REQUIREMENTS.md` D7 (never branch on domain), FR-DC-02/11/12.
 - **Creates / edits:** `core/scripts/clone.py` + the document/PDF source connector (`core/scripts/ingest_sharepoint.py` **or** a direct file-path source per §6.6.2).
 - **Do:** Author only the **two** slice-1 connectors — generic, source-type-keyed. Code "ingest" = `git clone` by SEAL ID into `repo/`.
@@ -336,7 +359,8 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Satisfies:** FR-DC-02, FR-DC-11, FR-DC-12.
 
 ### TASK-021 — Domain-seam build checks (§10.3/10.4/10.5) green
-- **Phase:** P1 · **Depends on:** TASK-014..020; build-check scripts from TASK-046/047/048 may not exist yet — if so, run the checks manually per the pseudocode and re-confirm via TASK-048.
+- **Phase:** P1 · **Depends on:** TASK-014..020
+- **Model:** Sonnet — verification task; run checks per spec pseudocode + record pass/fail; build-check scripts from TASK-046/047/048 may not exist yet — if so, run the checks manually per the pseudocode and re-confirm via TASK-048.
 - **Reads:** `docs/TECH_SPEC.md` §10.3 (domain artifact presence), §10.4 (connector coverage), §10.5 (adapter coverage + no-drift).
 - **Creates / edits:** none (verification); records pass/fail.
 - **Do:** Prove the seam is registered + consistent. §10.3 — required seam artifacts present (`jira_template` **excluded** this slice); §10.4 — every `UI_INPUT.sources[].type` has a non-domain-branching connector; §10.5 — `emits(adapter) ⊆ vocabulary`, every `required:true` topic has a producing skill, `adapter.yaml` emit-map == vocabulary "emitted by" (no drift, **F1 reconciled**), every adapter skill file exists.
@@ -354,6 +378,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-022 — Run-workspace layout + ledger init
 - **Phase:** P2 · **Depends on:** TASK-000.
+- **Model:** Sonnet — workspace template + JSON schema validators; schemas pinned in §2.2/§3.4/§3.5/§3.6
 - **Reads:** `docs/TECH_SPEC.md` §2.2 (run-workspace tree), §3.4 (`telemetry.jsonl`), §3.5 (`run_state.json`), §3.6 (`decisions.jsonl`); `docs/REQUIREMENTS.md` FR-XS-05.
 - **Creates / edits:** a run-workspace template under `runs/_template/` (`context_set/`, `repo/`, `prompts/`, `ledger/{telemetry.jsonl,run_state.json,decisions.jsonl}`) + JSON-schema validators for the three ledger files.
 - **Do:** Establish the on-disk artifact contract and an empty valid ledger that real runs (Phase 3) copy from.
@@ -363,6 +388,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-023 — `merge_manifest.py`
 - **Phase:** P2 · **Depends on:** TASK-022.
+- **Model:** Sonnet — deterministic Python fan-in script; output schema pinned in §3.2
 - **Reads:** `docs/TECH_SPEC.md` §3.2 (`index.json` shape + `sources_status`); `docs/REQUIREMENTS.md` FR-DC-05, D8c, NFR-07.
 - **Creates / edits:** `core/scripts/merge_manifest.py`.
 - **Do:** Deterministic fan-in: assemble per-source slices into `index.json`; record failed sources in `sources_status` (never drop).
@@ -372,6 +398,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-024 — `hydrate.py`
 - **Phase:** P2 · **Depends on:** TASK-000.
+- **Model:** Sonnet — git operations + file copy; mechanics pinned in Appendix B
 - **Reads:** `docs/TECH_SPEC.md` Appendix B (hydration mechanics); `docs/REQUIREMENTS.md` FR-XS-10, NFR-01, NFR-07.
 - **Creates / edits:** `core/scripts/hydrate.py`.
 - **Do:** `git clone --depth 1` + `checkout <registry_sha>` + selective copy of `core/` + `profiles/<domain>/` + `templates/<domain>/` + `overlays/<tool>/` into a run scaffold. (In the external build the source is this repo; the mechanism is what ports.)
@@ -381,6 +408,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-025 — `overlay_manifest.yaml` (D9)
 - **Phase:** P2 · **Depends on:** none.
+- **Model:** Haiku — verbatim transcription of the D9 normative block; no decisions to make
 - **Reads:** `docs/REQUIREMENTS.md` D9 / `docs/TECH_SPEC.md` §10.2 (the normative manifest block — 8 roles, 3 prompt files, per-tool launch).
 - **Creates / edits:** `core/overlay_manifest.yaml`.
 - **Do:** Transcribe the D9 block unchanged.
@@ -390,6 +418,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-026 — `instruction_file.template.md` + generation
 - **Phase:** P2 · **Depends on:** TASK-025.
+- **Model:** Sonnet — one canonical template + generation logic; placeholders pinned in §6.3
 - **Reads:** `docs/TECH_SPEC.md` §6.3 (placeholders + single-template rule); `docs/REQUIREMENTS.md` FR-XS-07, NFR-02.
 - **Creates / edits:** `core/instruction_file.template.md` + generation logic (used by TASK-031).
 - **Do:** One canonical template; placeholders filled from `UI_INPUT` + `overlay_manifest` (`{{domain}} {{runtime_tool}} {{registry_sha}} {{run_id}} {{roles}} {{prompt_files}} {{stage_transition}} {{start_gesture}}`); emit exactly one of `CLAUDE.md` / `copilot-instructions.md` by `runtime_tool`.
@@ -399,6 +428,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-027 — Claude overlay: agent wrappers
 - **Phase:** P2 · **Depends on:** TASK-025.
+- **Model:** Sonnet — 8 thin wrapper files; each is a pointer to a shared skill, no logic
 - **Reads:** `docs/TECH_SPEC.md` §6.2, §4 (wrapper = thin pointer to one shared skill); `docs/REQUIREMENTS.md` FR-XS-08, FR-XS-19.
 - **Creates / edits:** `overlays/claude/.claude/agents/*.md` (8 wrappers).
 - **Do:** Hand-author 8 thin wrappers, each body pointing at the one shared `core/skills/<role>`; frontmatter `user_invocable` per manifest.
@@ -408,6 +438,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-028 — Claude overlay: prompt files + launch
 - **Phase:** P2 · **Depends on:** TASK-027.
+- **Model:** Sonnet — 3 prompt files + launch config; structure pinned in §6.4
 - **Reads:** `docs/TECH_SPEC.md` §6.4 (stage transitions); `docs/REQUIREMENTS.md` FR-XS-11.
 - **Creates / edits:** `overlays/claude/prompts/{start-brd,start-frd,start-jira}` + launch (`terminal_interactive`).
 - **Do:** Author the three prompt files; each re-points a fresh agent at `UI_INPUT.yaml` + the prior artifact. Stage transitions are defined in the instruction file, **surfaced by the agent, performed by the operator** (`/clear`/new session) — agent never self-issues.
@@ -416,7 +447,8 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 - **Satisfies:** FR-XS-11, FR-XS-19.
 
 ### TASK-029 — Copilot overlay: agent wrappers
-- **Phase:** P2 · **Depends on:** TASK-025; TASK-007 (VDI PASSED reference).
+- **Phase:** P2 · **Depends on:** TASK-025
+- **Model:** Sonnet — parity twin of TASK-027 in native Copilot syntax; mechanical; TASK-007 (VDI PASSED reference).
 - **Reads:** `docs/TECH_SPEC.md` §6.2, §4; `docs/REQUIREMENTS.md` FR-XS-08, FR-XS-19, FR-XS-26.
 - **Creates / edits:** `overlays/copilot/*.agent.md` (8 wrappers).
 - **Do:** Parity twin of TASK-027 in native Copilot syntax (frontmatter + location differ; not abstracted), each pointing at the same shared skill.
@@ -426,6 +458,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-030 — Copilot overlay: prompt files + launch
 - **Phase:** P2 · **Depends on:** TASK-029.
+- **Model:** Sonnet — parity twin of TASK-028 with Copilot-native gesture; mechanical
 - **Reads:** `docs/TECH_SPEC.md` §6.4; `docs/REQUIREMENTS.md` FR-XS-11.
 - **Creates / edits:** `overlays/copilot/prompts/{start-brd,start-frd,start-jira}` + launch (`agent_mode`).
 - **Do:** Author the three prompt files; Copilot stage transition = `Ctrl+N` + prompt file (FR-XS-11).
@@ -434,7 +467,8 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 - **Satisfies:** FR-XS-11, FR-XS-19.
 
 ### TASK-031 — Scaffolder / Generate (two-step) + G0
-- **Phase:** P2 · **Depends on:** TASK-024, TASK-026; TASK-002 (locked `UI_INPUT.yaml`).
+- **Phase:** P2 · **Depends on:** TASK-024
+- **Model:** Opus — central Generate script everything flows from; a logic error here means no run ever scaffolds correctly, TASK-026; TASK-002 (locked `UI_INPUT.yaml`).
 - **Reads:** `docs/TECH_SPEC.md` §2.2, §6.3, Appendix B; `docs/REQUIREMENTS.md` FR-XS-03, FR-XS-09, D4 (G0).
 - **Creates / edits:** `core/scripts/generate.py` (slice-1 scaffolder consuming the P0-locked `UI_INPUT.yaml`).
 - **Do:** Deterministic Generate: lay the run workspace + generated instruction file + hydrated overlay, then **stop** for G0 inspection before run.
@@ -444,6 +478,7 @@ The plumbing + overlays the spine runs on. The frozen extractor (P1) ports uncha
 
 ### TASK-032 — `telemetry.emit()` + ledger writers
 - **Phase:** P2 · **Depends on:** TASK-022.
+- **Model:** Sonnet — event envelope + per-event writers; schema pinned in §3.4/§8.1
 - **Reads:** `docs/TECH_SPEC.md` §3.4, §8.1 (event table + `stage` vocabulary), §3.6; `docs/REQUIREMENTS.md` NFR-03, NFR-06, FR-MX-01.
 - **Creates / edits:** `core/scripts/telemetry.py` (the `emit()` + `decisions.jsonl` writer + `run_state.json` updater).
 - **Do:** Implement the envelope + per-event writers + gate/flag audit writer.
@@ -462,7 +497,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 ## L1 — Ingestion
 
 ### TASK-033 — `source_processor` (fan-out, failure-isolated)
-- **Phase:** P3 · **Depends on:** TASK-017 (`adapter.yaml`), TASK-022.
+- **Phase:** P3 · **Depends on:** TASK-017
+- **Model:** Opus — complex fan-out orchestration with failure isolation; this skill is the engine the entire ingestion pipeline runs on (`adapter.yaml`), TASK-022.
 - **Reads:** `docs/TECH_SPEC.md` §4 (the `source_processor` rows); `docs/SKILLS_INDEX.md` (source_processor); `docs/REQUIREMENTS.md` FR-DC-01/05, D8b/c.
 - **Creates / edits:** `core/skills/source_processor.skill.md`.
 - **Do:** One reusable fan-out worker; one instance per source in parallel; owns a source end-to-end and writes its slice + manifest entries. Reads `adapter.yaml` for run order; carries no domain knowledge itself.
@@ -471,7 +507,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 - **Satisfies:** FR-DC-01, FR-DC-05, FR-XS-18.
 
 ### TASK-034 — Document pipeline execution (extract→summarize→classify)
-- **Phase:** P3 · **Depends on:** TASK-017/018/019 (pack skills), TASK-033, TASK-003 (PDF + expected entries).
+- **Phase:** P3 · **Depends on:** TASK-017/018/019
+- **Model:** Sonnet — running the pipeline over fixtures and checking output against the oracle; execution not design (pack skills), TASK-033, TASK-003 (PDF + expected entries).
 - **Reads:** `docs/TECH_SPEC.md` §3.2 (manifest entry shape + provenance tags), §3.2 routing rule; `docs/REQUIREMENTS.md` FR-DC-03/04/06.
 - **Creates / edits:** run-workspace `context_set/<source>/*.md` + their `index.json` entries.
 - **Do:** Run the PBI doc pipeline (`pdf_extract` → `article_summarize` → `change_type_assess`) over the PDF to produce provenance-tagged slices.
@@ -480,7 +517,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 - **Satisfies:** FR-DC-03, FR-DC-04, FR-DC-06.
 
 ### TASK-035 — Repo clone + `merge_manifest` → `index.json`
-- **Phase:** P3 · **Depends on:** TASK-020 (`clone.py`), TASK-023 (`merge_manifest.py`), TASK-034.
+- **Phase:** P3 · **Depends on:** TASK-020
+- **Model:** Sonnet — running clone + merge scripts; verifying deterministic output (`clone.py`), TASK-023 (`merge_manifest.py`), TASK-034.
 - **Reads:** `docs/TECH_SPEC.md` §3.2; `docs/REQUIREMENTS.md` FR-DC-02/05, D8b.
 - **Creates / edits:** run-workspace `repo/` (cloned at pinned `commit_sha`) + `context_set/index.json`.
 - **Do:** Clone the SEAL-ID repo into `repo/`; assemble the merged `index.json` deterministically (with the bitbucket `sources_status` note).
@@ -491,7 +529,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 ## L1 — Code map
 
 ### TASK-036 — `code_map_build` skill (frozen extractor + gate → `code_map.json`)
-- **Phase:** P3 · **Depends on:** TASK-012 (frozen extractor + manifest), TASK-013 (gate), TASK-035 (`repo/`).
+- **Phase:** P3 · **Depends on:** TASK-012
+- **Model:** Sonnet — finalizing the skill and running the gate; all contracts already pinned in Phase 1 (frozen extractor + manifest), TASK-013 (gate), TASK-035 (`repo/`).
 - **Reads:** `docs/TECH_SPEC.md` §3.3, §5.3, §5.5; `docs/REQUIREMENTS.md` FR-DC-10/14/15/17.
 - **Creates / edits:** run-workspace `context_set/code_map.json` (cached by `commit_sha`); finalize `core/skills/code_map_build.skill.md`.
 - **Do:** Drive the **frozen** extractor through the 3-branch gate to produce the coarse map.
@@ -502,7 +541,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 ## L2 — BRD
 
 ### TASK-037 — `brd_author`: baseline+profile merge + discovery
-- **Phase:** P3 · **Depends on:** TASK-015 (`brd_profile`), TASK-034 (`index.json`), TASK-036 (`code_map.json`).
+- **Phase:** P3 · **Depends on:** TASK-015
+- **Model:** Opus — foundation of the BRD authoring skill; merge algorithm + discovery framing must be right before the section loop builds on it (`brd_profile`), TASK-034 (`index.json`), TASK-036 (`code_map.json`).
 - **Reads:** `docs/brd_author.skill.md` (seed — baseline sections + operating procedure); `docs/REQUIREMENTS.md` D2 (inline baseline + merge algorithm), FR-BR-01/02; `docs/TECH_SPEC.md` §3.7 (BRD.md structure).
 - **Creates / edits:** `core/skills/brd_author.skill.md` (merge + discovery portion).
 - **Do:** Implement deterministic baseline+profile merge (by `id`, executive summary pinned last) and short framing discovery (load `UI_INPUT` + manifest, 2–3 questions, seed the coarse code pass).
@@ -512,6 +552,7 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 
 ### TASK-038 — `brd_author`: section-by-section authoring loop
 - **Phase:** P3 · **Depends on:** TASK-037.
+- **Model:** Opus — the most complex part of the skill; selective-read routing + must_capture evaluation + probe logic + coverage footer all interlock here
 - **Reads:** `docs/brd_author.skill.md` (per-section loop); `docs/REQUIREMENTS.md` FR-BR-03/04, NFR-05; `docs/TECH_SPEC.md` §3.2 (routing rule), §3.7 (coverage footer).
 - **Creates / edits:** the per-section loop in `core/skills/brd_author.skill.md`; emits incremental `BRD.md` with per-section `<!-- coverage: {...} -->` footers.
 - **Do:** For each section: select context by §3.2 routing, draft against `must_capture`, probe gaps (one topic at a time), mark coverage. **Always-selective read** — manifest always loaded, expand on demand, no load-all/threshold (FR-BR-04, NFR-05).
@@ -521,6 +562,7 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 
 ### TASK-039 — `brd_author`: cite-or-flag grounding + revisit/shared-memory
 - **Phase:** P3 · **Depends on:** TASK-038.
+- **Model:** Sonnet — grounding rules are clearly stated in FR-BR-05/06; no judgment calls in the implementation
 - **Reads:** `docs/brd_author.skill.md` (grounding + revisiting rules); `docs/REQUIREMENTS.md` FR-BR-05/06; `docs/TECH_SPEC.md` §3.7.
 - **Creates / edits:** the grounding + revisit rules in `core/skills/brd_author.skill.md`.
 - **Do:** Every substantive claim cited inline (`[src: …]`/`[frame]`/`[operator]`) or `[TBD — unsourced]` — never invented (FR-BR-06); support revisiting earlier sections + shared memory (never re-ask; on mid-stage reset, persist facts first) (FR-BR-05).
@@ -529,7 +571,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 - **Satisfies:** FR-BR-05, FR-BR-06.
 
 ### TASK-040 — `code_impact`: coarse pass (map-only)
-- **Phase:** P3 · **Depends on:** TASK-036 (`code_map.json`).
+- **Phase:** P3 · **Depends on:** TASK-036
+- **Model:** Sonnet — map-only read; match requirement topics × tags; clearly scoped in §5.6 (`code_map.json`).
 - **Reads:** `docs/code_impact_assess.skill.md` (coarse mode); `docs/TECH_SPEC.md` §5.6; `docs/REQUIREMENTS.md` FR-BR-07.
 - **Creates / edits:** `core/skills/code_impact_assess.skill.md` (coarse portion).
 - **Do:** Coarse pass reads the **map only** (no source files): match requirement topics × map `tags`/`purpose` → ranked candidate areas to thread into early BRD sections.
@@ -538,7 +581,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 - **Satisfies:** FR-BR-07.
 
 ### TASK-041 — `code_impact`: deep pass + required Flags
-- **Phase:** P3 · **Depends on:** TASK-040, TASK-035 (`repo/`).
+- **Phase:** P3 · **Depends on:** TASK-040
+- **Model:** Opus — dependency closure reasoning across real source files; Flags schema every run; subtle correctness requirements (selective-read only the flagged slice; never decide scope), TASK-035 (`repo/`).
 - **Reads:** `docs/code_impact_assess.skill.md` (deep mode + Flags); `docs/TECH_SPEC.md` §5.6, §3.6 (D6b Flags schema); `docs/REQUIREMENTS.md` FR-BR-12.
 - **Creates / edits:** the deep pass + Flags output in `core/skills/code_impact_assess.skill.md`.
 - **Do:** Deep pass selective-reads **only the flagged slice** from `repo/`, traces the real closure, and emits the **Flags** section every run (`type, area, finding, implication, options, recommended_option, severity, requirement_ref`); emit "no flags" when none. Recommends `severity`, never decides scope. BRD code-impact section stays business-framed (file/function detail → FRD).
@@ -547,7 +591,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 - **Satisfies:** FR-BR-07, FR-BR-12.
 
 ### TASK-042 — `brd_author`: human-mediated flag loop + material threshold
-- **Phase:** P3 · **Depends on:** TASK-039, TASK-041, TASK-032 (ledger writers).
+- **Phase:** P3 · **Depends on:** TASK-039
+- **Model:** Opus — material vs advisory threshold (D6c) + conditional re-run scoped to changed surface; getting this wrong either over-triggers expensive re-runs or under-triggers required ones, TASK-041, TASK-032 (ledger writers).
 - **Reads:** `docs/REQUIREMENTS.md` D6c (material threshold), FR-BR-08/13; `docs/TECH_SPEC.md` §5.6, §9.5 (GF), §3.6.
 - **Creates / edits:** the flag loop in `core/skills/brd_author.skill.md`; `decisions.jsonl` flag entries.
 - **Do:** Surface → wait → apply → conditional-re-run. **No auto-applied scope changes** (FR-BR-08); flags one at a time with a recommendation; **material** (per D6c) → section revision + a `code_impact` re-run **scoped to the changed surface only** (FR-BR-13); otherwise advisory (no re-run); emit `flag_decision` telemetry.
@@ -557,6 +602,7 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 
 ### TASK-043 — `brd_validator` + G1
 - **Phase:** P3 · **Depends on:** TASK-042.
+- **Model:** Sonnet — score formula is arithmetic; hard preconditions are clearly enumerated in §9.2
 - **Reads:** `docs/TECH_SPEC.md` §9.2 (score formula + hard preconditions); `docs/REQUIREMENTS.md` FR-BR-09, FR-XS-13/14, D4.
 - **Creates / edits:** `core/skills/brd_validator.skill.md` + G1 wiring + `validation`/`gate_decision` telemetry + `decisions.jsonl` gate entry.
 - **Do:** Implement `brd_score = round(100*(0.7*topic_coverage + 0.3*citation_integrity))`; wire G1.
@@ -567,7 +613,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 ## L3 — FRD
 
 ### TASK-044 — `frd_author` (consume BRD vN; `traces_to`; detailed impact)
-- **Phase:** P3 · **Depends on:** TASK-016 (`frd_profile`), TASK-043 (accepted `BRD.md`), TASK-041 (deep impact).
+- **Phase:** P3 · **Depends on:** TASK-016
+- **Model:** Opus — consumes accepted BRD and carries the detailed technical impact forward; traces_to must resolve correctly or G2 fails; complex skill (`frd_profile`), TASK-043 (accepted `BRD.md`), TASK-041 (deep impact).
 - **Reads:** `docs/TECH_SPEC.md` §3.7 (FRD.md structure + traces block); `docs/REQUIREMENTS.md` FR-FR-01..04, FR-FR-06; `docs/SKILLS_INDEX.md` (frd_author).
 - **Creates / edits:** `core/skills/frd_author.skill.md`; run-workspace `FRD.md`.
 - **Do:** Drive FRD authoring off `frd_profile`, consuming accepted `BRD.md`; carry the **detailed technical code impact** forward (BRD stays business-framed); every FRD topic `traces_to` a real BRD anchor; inquiry mode + modify-via-chat with diff preview; pin to BRD vN.
@@ -577,6 +624,7 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 
 ### TASK-045 — `frd_validator` + G2
 - **Phase:** P3 · **Depends on:** TASK-044.
+- **Model:** Sonnet — score formula is arithmetic; traceability + testability rules clearly enumerated in §9.3
 - **Reads:** `docs/TECH_SPEC.md` §9.3 (score + hard precondition); `docs/REQUIREMENTS.md` FR-FR-05, D4.
 - **Creates / edits:** `core/skills/frd_validator.skill.md` + G2 wiring + telemetry + `decisions.jsonl` entry.
 - **Do:** Implement `frd_score = round(100*(0.5*traceability + 0.5*testability))`; wire G2.
@@ -593,7 +641,8 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 The five build checks become runnable, and the spine is exercised end-to-end on the fixtures.
 
 ### TASK-046 — §10.1 vocabulary containment check
-- **Phase:** P4 · **Depends on:** TASK-014/015/016 (vocabulary + profiles).
+- **Phase:** P4 · **Depends on:** TASK-014/015/016
+- **Model:** Sonnet — Python assertion script; rule is a simple set-containment check (vocabulary + profiles).
 - **Reads:** `docs/TECH_SPEC.md` §10.1 (the containment rule).
 - **Creates / edits:** `core/scripts/checks/check_vocab_containment.py`.
 - **Do:** Assert every topic referenced by `brd_profile`/`frd_profile` and every tag emitted by adapter skills ∈ `vocabulary.payment_brand.yaml`.
@@ -603,6 +652,7 @@ The five build checks become runnable, and the spine is exercised end-to-end on 
 
 ### TASK-047 — §10.2 overlay parity check
 - **Phase:** P4 · **Depends on:** TASK-025/027/028/029/030.
+- **Model:** Sonnet — Python parity script; rule is manifest roles vs overlay files
 - **Reads:** `docs/TECH_SPEC.md` §10.2 (parity rule); `docs/REQUIREMENTS.md` D9.
 - **Creates / edits:** `core/scripts/checks/check_overlay_parity.py`.
 - **Do:** Assert both overlays expose every `overlay_manifest` role pointing at the same shared skill, with the same 3 prompt files, differing only in tool-native syntax/launch.
@@ -611,7 +661,8 @@ The five build checks become runnable, and the spine is exercised end-to-end on 
 - **Satisfies:** FR-XS-08, FR-XS-19, FR-XS-20.
 
 ### TASK-048 — `build_checks.py` runner (all five) + `metrics_scan.py`
-- **Phase:** P4 · **Depends on:** TASK-046, TASK-047; the §10.3/10.4/10.5 logic from TASK-021; TASK-032 (telemetry).
+- **Phase:** P4 · **Depends on:** TASK-046
+- **Model:** Sonnet — aggregating existing checks into one runner + metrics derivation from telemetry; mechanical, TASK-047; the §10.3/10.4/10.5 logic from TASK-021; TASK-032 (telemetry).
 - **Reads:** `docs/TECH_SPEC.md` §10.1–§10.5 (all five checks), §8 (metrics derivations); `docs/REQUIREMENTS.md` FR-MX-01, NFR-06.
 - **Creates / edits:** `core/scripts/build_checks.py` (runs all five, non-zero on any fail) + `core/scripts/metrics_scan.py` (derives MVP metrics from `telemetry.jsonl`).
 - **Do:** Aggregate §10.1 (vocab) + §10.2 (parity) + §10.3 (domain artifacts) + §10.4 (connector coverage) + §10.5 (adapter coverage/no-drift) into one runner; build the read-only metrics scan.
@@ -620,7 +671,8 @@ The five build checks become runnable, and the spine is exercised end-to-end on 
 - **Satisfies:** FR-DC-09, FR-XS-01, FR-XS-20, FR-MX-01, NFR-06.
 
 ### TASK-049 — Spine end-to-end acceptance (PDF + repo → BRD vN → FRD)
-- **Phase:** P4 · **Depends on:** TASK-031 (Generate/G0) + all of Phase 3 + TASK-048.
+- **Phase:** P4 · **Depends on:** TASK-031
+- **Model:** Opus — exercises the full spine including flag loop and gate reopens; highest-stakes task in the build; failure here means something in Phase 1–3 is wrong (Generate/G0) + all of Phase 3 + TASK-048.
 - **Reads:** `docs/TECH_SPEC.md` §7 (end-to-end run narrative) + §9 (gates); `docs/REQUIREMENTS.md` FR-XS-09..14, D4.
 - **Creates / edits:** `docs/ACCEPTANCE.md` (the run log + artifact links).
 - **Do:** From the P0-locked `UI_INPUT.yaml`, run Generate→G0→ingestion→code_map→BRD/G1→FRD/G2 on TASK-003 PDF + TASK-004 repo. Exercise the flag loop and one G1 reopen→vN+1.
