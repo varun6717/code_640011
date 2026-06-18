@@ -38,11 +38,11 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-000 — Repository scaffold + docs + CLAUDE.md
 
 **Phase 0 — UI / input-contract design (in CHAT as `.jsx`, not Claude Code)**
-- [ ] TASK-001 — UI pattern library
-- [ ] TASK-002 — UI screens → locked `UI_INPUT.yaml`
+- [x] TASK-001 — UI pattern library
+- [x] TASK-002 — UI screens → locked `UI_INPUT.yaml`
 
 **Phase 1 — Pre-tasks**
-- [ ] TASK-003 — PDF input fixture(s)
+- [x] TASK-003 — PDF input fixture(s)
 - [ ] TASK-004 — Stratus C-pattern catalog → `.c`/`.h` fixtures
 - [ ] TASK-005 — Signed-off expected `code_map` (regression oracle)
 - [ ] TASK-006 — `ctags`/`cscope` availability + fallback note

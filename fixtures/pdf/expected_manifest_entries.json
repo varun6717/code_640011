@@ -1,0 +1,20 @@
+[
+  {
+    "path": "context_set/pdf/visa_brand_mandate_2026.md",
+    "source": "pdf",
+    "url": "fixtures/pdf/visa_brand_mandate_2026.pdf",
+    "adapter": "article_summarize",
+    "change_type": "new",
+    "topics": ["mandate", "compliance_deadline", "brand_rules", "card_brand", "certification", "routing"],
+    "descriptor": "Visa brand mandate VMS-2026-0147; compliance deadline 2026-09-30; covers routing rules, CVM brand constraints, and VMC Level 3 certification requirements"
+  },
+  {
+    "path": "context_set/pdf/mastercard_interchange_spec_2026.md",
+    "source": "pdf",
+    "url": "fixtures/pdf/mastercard_interchange_spec_2026.pdf",
+    "adapter": "article_summarize",
+    "change_type": "new",
+    "topics": ["interchange_fees", "routing", "message_format", "reporting", "card_brand", "compliance_deadline"],
+    "descriptor": "Mastercard interchange and routing spec MCS-2026-R3; effective 2026-07-01; introduces DE 48.77/48.78 message format additions, revised interchange tiers, and Regulation II routing/reporting obligations"
+  }
+]
