@@ -7,7 +7,9 @@ extractor + register it"; the core, the schema, and ``code_impact`` are untouche
 Division of labor (FR-DC-15 / FR-DC-17), enforced here in code so it cannot waver:
 
   - ``detect_language``  — deterministic, model-free (file-glob histogram +
-                           build-manifest signals).
+                           build-manifest signals); the single dominant language.
+  - ``partition_by_language`` — deterministic per-language file map (ADR-002), so a
+                           polyglot repo routes each language independently.
   - ``extractor_for``    — registry lookup; returns a frozen extractor or ``None``.
   - ``normalize``        — maps any extractor's raw output → the §3.3 file-entry shape.
   - ``merge_edges``      — deterministic ``depends_on ↔ used_by`` closure.
@@ -134,6 +136,34 @@ def detect_language(repo: str) -> Optional[str]:
     return tied[0]
 
 
+def partition_by_language(repo: str) -> dict[str, list[str]]:
+    """Partition a repo's source files by language (ADR-002), deterministic + model-free.
+
+    Returns ``{language: [relative_path, ...]}`` for every source language present, so
+    the dispatcher can route each partition independently: a language with a frozen
+    extractor goes through it (full coverage); the rest (the *residue*) routes to the
+    model fallback marked coarse — no file is dropped (ADR-002 / §5.5).
+
+    This is the polyglot generalization of ``detect_language``: ``detect_language``
+    returns the single dominant language (top-level ``code_map.language``, gate input);
+    ``partition_by_language`` returns the full per-language file map. Same deterministic
+    signals (the extension table); files of unknown extension are omitted (non-source).
+    Paths are repo-relative and each language's list is sorted for stable output.
+    """
+    partitions: dict[str, list[str]] = {}
+    for dirpath, dirnames, filenames in os.walk(repo):
+        dirnames[:] = [d for d in dirnames if d.lower() not in _IGNORED_DIRS]
+        for name in filenames:
+            lang = _EXTENSION_LANGUAGE.get(os.path.splitext(name)[1].lower())
+            if lang is None:
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, name), repo)
+            partitions.setdefault(lang, []).append(rel)
+    for lang in partitions:
+        partitions[lang].sort()
+    return partitions
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Extractor registry — the language seam (§5.5). ``extractor_for`` returns the
 # frozen extractor for a language or ``None`` (→ model-only fallback, TASK-010).
@@ -248,6 +278,7 @@ def merge_edges(entries: Sequence[dict]) -> list[dict]:
 
 __all__ = [
     "detect_language",
+    "partition_by_language",
     "register_extractor",
     "extractor_for",
     "normalize_entry",

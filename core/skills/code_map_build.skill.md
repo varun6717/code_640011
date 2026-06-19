@@ -47,28 +47,36 @@ The dispatch flow is **deterministic and model-free** (FR-DC-15). It is implemen
 code is what makes "deterministic, model-free" real and repeatable; do not re-derive these steps in prose.
 
 ```
-dispatch(repo) -> code_map.json:                      # TECH_SPEC §5.5
-  L = detect_language(repo)                            # core.extractors.detect_language — DETERMINISTIC
-  E = extractor_for(L)                                 # core.extractors.extractor_for  — registry lookup
-  if E:
-      raw     = E(repo)                                # frozen tool (tree-sitter-c for C; TASK-009)
-      entries = normalize(raw)                         # → §3.3 file-entry shape (structural fields only)
-      cov     = "coarse"                               # per D6a; deep pass confirms
-  else:
-      entries = model_fallback(repo)                   # TASK-010 — model derives structure, lower-coverage
-      mark_all(entries, coverage="coarse"); force_top_level_coverage("coarse")
+dispatch(repo) -> code_map.json:                      # TECH_SPEC §5.5, revised by ADR-002
+  partitions = partition_by_language(repo)             # core.extractors — DETERMINISTIC {lang: [files]}
+  entries = []
+  for lang, files in partitions:
+      E = extractor_for(lang)                          # core.extractors.extractor_for — registry lookup
+      if E:
+          entries += normalize(E(files))               # frozen tool (tree-sitter-c for C; TASK-009)
+      else:
+          entries += model_fallback(files)             # TASK-010 — residue: model derives structure,
+                                                        #   mark_all coverage="coarse" (never dropped)
   for e in entries:
       e.purpose, e.tags = model_enrich(e)              # TASK-011 — MODEL owns purpose + tags ONLY
       assert e.tags ⊆ domain_vocabulary                # TASK-011 — D5 / §10
   edges = merge_edges(entries)                         # core.extractors.merge_edges — DETERMINISTIC closure
-  return assemble(entries, edges, coverage_report)
+  return assemble(entries, edges, coverage_report)     # files_seen counts ALL source files;
+                                                        #   residue = files_fallback (§5.4 / ADR-002)
 ```
+
+**Polyglot dispatch (ADR-002).** A repo is partitioned by language; the **majority language goes through
+its frozen extractor**, the **residue goes through the model fallback** (marked coarse), and both merge into
+one `code_map.json`. No file is dropped. Because residue counts as `files_fallback`, a genuinely bilingual
+repo's coverage drops below the floor → `REONBOARD_FLAG` names the un-onboarded language; a few ancillary
+scripts barely move coverage and raise nothing. `detect_language` is still used for the single **dominant**
+language (top-level `code_map.language`, gate/cache key).
 
 ### Division of labor (fixed — never blur)
 
 | Step | Owner | Where | Determinism |
 |---|---|---|---|
-| `detect_language` | **code** | `core/extractors/__init__.py` | deterministic (FR-DC-15) |
+| `detect_language` / `partition_by_language` | **code** | `core/extractors/__init__.py` | deterministic (FR-DC-15) |
 | `extractor_for` (registry) | **code** | `core/extractors/__init__.py` | deterministic |
 | structural fields (`path/module/interfaces/depends_on/used_by`) | **extractor** | `core/extractors/<lang>_extractor.py` | deterministic (frozen) |
 | `normalize` (→ §3.3 shape) | **code** | `core/extractors/__init__.py` | deterministic |
@@ -79,12 +87,15 @@ dispatch(repo) -> code_map.json:                      # TECH_SPEC §5.5
 The model is in the loop for **meaning only** (`purpose`/`tags`, and — flagged as coarse — fallback
 structure). It is never the source of detection, normalization, edges, or the gate decision.
 
-### Language detection (deterministic — FR-DC-15)
+### Language detection + partition (deterministic — FR-DC-15)
 
 `detect_language(repo)` is a file-glob histogram over source-file extensions, with build-manifest
 filenames (`Makefile`, `CMakeLists.txt`, `pom.xml`, …) used only to break ties; vendored/build dirs are
-pruned. Same tree in → same language out. Slice 1 returns a single dominant language (single-repo,
-single-language MVP scope); polyglot per-subtree routing is Phase 5. `fixtures/c_repo/` detects as `c`.
+pruned. Same tree in → same dominant language out. It feeds the top-level `code_map.language` and the gate.
+`partition_by_language(repo)` (ADR-002) returns the full `{lang: [files]}` map over the same deterministic
+extension signals, so a polyglot repo routes each language independently (above). `fixtures/c_repo/`
+detects as `c`; `fixtures/mixed_repo/` partitions into `c` (majority) + residue. Per-*subtree* language
+nesting and multi-*repo* breadth remain Phase 5.
 
 ### Normalization contract (the language seam — §5.5)
 
@@ -99,8 +110,10 @@ nothing else changes.
 
 - **C** → `core/extractors/c_extractor.py` (TASK-009), registered via `register_extractor("c", …)`.
   Until registered, `extractor_for("c")` returns `None` and a C repo routes to the fallback.
-- **Model-only fallback** → the `else` branch (TASK-010): reached only when `extractor_for(L)` is `None`;
-  marks every entry `coverage: coarse` and forces top-level coverage coarse.
+- **Model-only fallback** → the `else` branch (TASK-010): reached for any partition whose language has no
+  registered extractor — whether that is the whole repo (no extractor for the dominant language) or just
+  the **residue** of a polyglot repo (ADR-002). Operates over a **file set**; marks every entry
+  `coverage: coarse`; residue files count as `files_fallback` in the `coverage_report`.
 
 ### Gate (forward reference)
 

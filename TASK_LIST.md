@@ -51,9 +51,9 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-005 — Hand-author `expected_code_map.json` against C fixtures; human-signed-off oracle that grades TASK-012 · `Sonnet`
 - [x] TASK-006 — Check C extractor tooling (`tree-sitter`/`tree-sitter-c` per ADR-001); write `ENV_PRECHECK.md` with version or fallback decision · `Sonnet`
 - [x] TASK-007 — Record Copilot/VDI PASSED 2026-06-16 note in `ENV_PRECHECK.md` (no re-run needed) · `Sonnet`
-- [x] TASK-008 — Language detection + dispatcher skeleton in `code_map_build.skill.md`; normalization contract maps any extractor output to §3.3 shape · `Sonnet`
-- [ ] TASK-009 — C extractor: `tree-sitter` (ADR-001) → structural fields only; mark function-pointer/macro/`#ifdef` blindspots as `coverage: coarse` · `Sonnet`
-- [ ] TASK-010 — Model-only fallback branch: when no frozen extractor exists, derive structure via model, force all entries `coverage: coarse` · `Sonnet`
+- [x] TASK-008 — Language detection + partition + dispatcher skeleton in `code_map_build.skill.md`; normalization contract maps any extractor output to §3.3 shape (per-language partition dispatch per ADR-002) · `Sonnet`
+- [ ] TASK-009 — C extractor: `tree-sitter` (ADR-001) over the C partition → structural fields only; mark function-pointer/macro/`#ifdef` blindspots as `coverage: coarse` · `Sonnet`
+- [ ] TASK-010 — Model fallback over a file set (whole-repo + polyglot residue, ADR-002): derive structure via model, mark entries `coverage: coarse`, residue → `files_fallback` · `Sonnet`
 - [ ] TASK-011 — Model enrichment: model sets `purpose`+`tags` only; deterministic `merge_edges`; assert `tags ⊆ vocabulary` · `Sonnet`
 - [ ] TASK-012 — Validate extractor output vs signed-off oracle; meet coverage floor 0.80; human-gate freeze; write `onboarding_manifest.yaml` · `Sonnet`
 - [ ] TASK-013 — 3-branch gate (fully model-free): onboard / reuse-cached / rebuild-changed-files; `REONBOARD_FLAG` if below floor · `Sonnet`
@@ -237,21 +237,21 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 ### TASK-009 — C extractor (tree-sitter → structural fields)
 - **Phase:** P1 · **Depends on:** TASK-008 · **Toolchain:** `tree-sitter` + `tree-sitter-c` per **ADR-001**.
 - **Model:** Sonnet — Python extractor using `tree-sitter-c` CST queries; clear input/output contract in §5.5 (dispatcher), TASK-004 (`fixtures/c_repo/`).
-- **Reads:** `docs/design/ADR-001-c-extractor-tree-sitter.md`; `docs/TECH_SPEC.md` §5.5 (extractor owns structural fields only), §3.3 (file-entry schema, `coverage_report`); `docs/REQUIREMENTS.md` FR-DC-17.
-- **Creates / edits:** `core/extractors/c_extractor.py`.
-- **Do:** Use `tree-sitter-c` to parse each file and pull **structural fields only** (`path/module/interfaces/depends_on/used_by`) and emit a `coverage_report`. **Exclude `static` file-local functions from `interfaces[]`.** Mark static-analysis blind spots (function pointers via `field_expression`/computed callees, macro-generated functions surfaced as `ERROR` nodes, `#ifdef`/vendor escapes) as `coverage: coarse` with `unresolved_patterns`.
-- **Acceptance:** the extractor emits the structural fields per §3.3; it does **not** set `purpose`/`tags` (those are TASK-011); `merge_edges` (TASK-011) consumes its `depends_on`/`used_by`; output matches the TASK-005 oracle on `fixtures/c_repo`.
+- **Reads:** `docs/design/ADR-001-c-extractor-tree-sitter.md`; `docs/design/ADR-002-polyglot-partition-dispatch.md` (extractor consumes a **file list**, not the whole repo); `docs/TECH_SPEC.md` §5.5 (extractor owns structural fields only), §3.3 (file-entry schema, `coverage_report`); `docs/REQUIREMENTS.md` FR-DC-17.
+- **Creates / edits:** `core/extractors/c_extractor.py`; `register_extractor("c", …)` in `core/extractors/__init__.py`.
+- **Do:** Accept the **C-language partition** (the `files` list the dispatcher passes per ADR-002, not a self-glob of the repo). Use `tree-sitter-c` to parse each file and pull **structural fields only** (`path/module/interfaces/depends_on/used_by`) and emit a `coverage_report`. **Exclude `static` file-local functions from `interfaces[]`.** Mark static-analysis blind spots (function pointers via `field_expression`/computed callees, macro-generated functions surfaced as `ERROR` nodes, `#ifdef`/vendor escapes) as `coverage: coarse` with `unresolved_patterns`.
+- **Acceptance:** the extractor emits the structural fields per §3.3; it does **not** set `purpose`/`tags` (those are TASK-011); `merge_edges` (TASK-011) consumes its `depends_on`/`used_by`; **runs over the file list it is handed** (registered via `register_extractor`); output matches the TASK-005 oracle on `fixtures/c_repo`.
 - **Fixture / proof:** runs over `fixtures/c_repo/` and produces structural entries for the easy files; flags the hard patterns.
 - **Satisfies:** FR-DC-15, FR-DC-17.
 
-### TASK-010 — Model-only fallback path
+### TASK-010 — Model fallback path (over a file set; whole-repo + residue)
 - **Phase:** P1 · **Depends on:** TASK-008.
-- **Model:** Sonnet — adding a fallback branch to an existing skill file; logic is clearly defined in §5.5
-- **Reads:** `docs/TECH_SPEC.md` §5.5 (`model_fallback`), §5.7 (safety net); `docs/REQUIREMENTS.md` FR-DC-17.
+- **Model:** Sonnet — adding a fallback branch to an existing skill file; logic is clearly defined in §5.5 + ADR-002
+- **Reads:** `docs/TECH_SPEC.md` §5.5 (`model_fallback`), §5.7 (safety net), §5.4 (`files_fallback` in `coverage_report`); `docs/design/ADR-002-polyglot-partition-dispatch.md`; `docs/REQUIREMENTS.md` FR-DC-17.
 - **Creates / edits:** the fallback branch in `core/skills/code_map_build.skill.md`.
-- **Do:** When no frozen extractor exists for a language, derive structure via the model and mark **all** entries `coverage: coarse` + force top-level coverage coarse.
-- **Acceptance:** fallback output is schema-valid (§3.3) and explicitly lower-coverage; it is only reached when `extractor_for(L)` is None.
-- **Fixture / proof:** a non-C fixture file routes to fallback and is marked coarse.
+- **Do:** `model_fallback(files)` derives structure via the model over a **file set** and marks **all** its entries `coverage: coarse`. It is the route for any partition whose language has no registered extractor — whether that is the **whole repo** (no extractor for the dominant language) or the **residue** of a polyglot repo (ADR-002). Residue files count as `files_fallback` in the `coverage_report`; top-level coverage is forced coarse only when the *whole* repo went to fallback.
+- **Acceptance:** fallback output is schema-valid (§3.3) and explicitly lower-coverage; it is reached for exactly the partitions where `extractor_for(lang)` is None; residue entries contribute to `files_fallback` so coverage reflects the deterministic share (§5.4).
+- **Fixture / proof:** `fixtures/mixed_repo/` — the C partition routes to the extractor, the non-C **residue** routes to fallback marked coarse; a fully non-C fixture routes entirely to fallback with forced top-level coarse.
 - **Satisfies:** FR-DC-17.
 
 ### TASK-011 — Model enrichment (`purpose`+`tags`) + `merge_edges` + vocab assert
@@ -269,8 +269,8 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Model:** Sonnet — validation script + YAML manifest; human must approve the freeze commit, TASK-011, TASK-005 (oracle).
 - **Reads:** `docs/TECH_SPEC.md` §5.2 (`onboarding_manifest.yaml` schema), §5.4 (coverage floor 0.80); `docs/REQUIREMENTS.md` FR-DC-14, FR-DC-16.
 - **Creates / edits:** `core/onboarding_manifest.yaml`; freeze-commit `core/extractors/c_extractor.py`.
-- **Do:** Validate extractor output against the **signed-off** `fixtures/c_repo/expected_code_map.json`; meet `coverage_floor`; **human-gate the freeze** and record the manifest (`extractor_sha`, `tools_required`, `file_globs`, `coverage_floor`, `frozen_at`, `frozen_by`).
-- **Acceptance:** output matches the oracle; `coverage ≥ 0.80`; freeze is human-gated (model proposes, human commits); `extractor_sha` recorded.
+- **Do:** Validate extractor output against the **signed-off** `fixtures/c_repo/expected_code_map.json`; meet `coverage_floor`; **human-gate the freeze** and record the manifest (`extractor_sha`, `tools_required`, `file_globs`, `coverage_floor`, `frozen_at`, `frozen_by`). Per ADR-002, `coverage_report.files_seen` counts **all** source files in the repo and residue (non-extractor) files are `files_fallback`, so `coverage = files_extracted / files_seen` reflects the deterministic share — a genuinely polyglot repo trips the floor (→ TASK-013 `REONBOARD_FLAG`), while `fixtures/c_repo/` (single-language) is unaffected.
+- **Acceptance:** output matches the oracle; `coverage ≥ 0.80` on `fixtures/c_repo/`; freeze is human-gated (model proposes, human commits); `extractor_sha` recorded.
 - **Fixture / proof:** the signed-off oracle (TASK-005).
 - **Satisfies:** FR-DC-14, FR-DC-16.
 
@@ -279,8 +279,8 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Model:** Sonnet — gate algorithm is fully specified in §5.3; deterministic logic, no judgment calls (`onboarding_manifest.yaml`).
 - **Reads:** `docs/TECH_SPEC.md` §5.3 (the 3-branch `GATE` algorithm — onboard / reuse / rebuild), §5.4 (coverage check); §3.6 (`reonboard_flag`); `docs/REQUIREMENTS.md` FR-DC-15, FR-DC-16.
 - **Creates / edits:** the gate logic in `core/skills/code_map_build.skill.md`; a `reonboard_flag` writer into `decisions.jsonl`.
-- **Do:** Implement the gate using **only** deterministic signals (language detection, extractor presence, content hash, `extractor_sha`). Branch A onboard / B reuse-cached / C rebuild-changed-files-only; coverage<floor → `REONBOARD_FLAG`.
-- **Acceptance:** **no model in the branch decision**; no-change → reuse; content change → `git_diff_names` rebuild of changed files only; the frozen extractor is **never** modified.
+- **Do:** Implement the gate using **only** deterministic signals (language detection, extractor presence, content hash, `extractor_sha`). Branch A onboard / B reuse-cached / C rebuild-changed-files-only; coverage<floor → `REONBOARD_FLAG`. Per ADR-002, Branch A (onboard) is keyed on the **dominant** language (`detect_language`); an un-onboarded **residue** language is not its own branch — it is covered by fallback and surfaced through the coverage floor (`REONBOARD_FLAG` names the residue language).
+- **Acceptance:** **no model in the branch decision**; no-change → reuse; content change → `git_diff_names` rebuild of changed files only; the frozen extractor is **never** modified; a polyglot repo below floor raises `REONBOARD_FLAG` for the residue language (not a crash, not a silent drop).
 - **Fixture / proof:** `fixtures/c_repo/` at two commits (one no-op, one content change) + a coverage-floor-busting variant.
 - **Satisfies:** FR-DC-15, FR-DC-16.
 
