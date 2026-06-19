@@ -48,7 +48,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 **Phase 1 — Pre-tasks**
 - [x] TASK-003 — PDF fixtures: 2× Mastercard mandate PDFs + `expected_manifest_entries.json` oracle for TASK-034 · `Sonnet`
 - [x] TASK-004 — Synthetic Stratus C repo: payment routing code with function-pointer dispatch, macros, `#ifdef` patterns the extractor must handle · `Sonnet`
-- [ ] TASK-005 — Hand-author `expected_code_map.json` against C fixtures; human-signed-off oracle that grades TASK-012 · `Sonnet`
+- [x] TASK-005 — Hand-author `expected_code_map.json` against C fixtures; human-signed-off oracle that grades TASK-012 · `Sonnet`
 - [ ] TASK-006 — Check `ctags`/`cscope` on PATH; write `ENV_PRECHECK.md` with version or fallback decision · `Sonnet`
 - [ ] TASK-007 — Record Copilot/VDI PASSED 2026-06-16 note in `ENV_PRECHECK.md` (no re-run needed) · `Sonnet`
 - [ ] TASK-008 — Language detection + dispatcher skeleton in `code_map_build.skill.md`; normalization contract maps any extractor output to §3.3 shape · `Sonnet`
@@ -691,7 +691,7 @@ Each item is a future seam extension, not a gap. They are deferred by decision, 
 - **Jira push + `jpmc_adapters` + G3** — `jira_author`/`jira_validator` (§9.4), `jira_plan/` + `trace.json` (§3.8), the `jpmc_adapters` Jira interface (the **only** external mutation), gate G3, and `jira_template` in the seam (§10.3 will then require it). (FR-JR-*, FR-XS-17.)
 - **Multi-input** — additional source connectors (Confluence/SharePoint variants) beyond the slice-1 two; `source_processor` already fans out.
 - **Multi-repo** — populate the reserved `external_calls` / `exposes` cross-repo fields in `code_map.json` (§3.3) and cross-repo closure. (FR-DC-18.)
-- **More language extractors** — onboard Java/Python/etc. via the same gate; each frozen with its own `onboarding_manifest`.
+- **More language extractors + agent-assisted onboarding** — onboard Java/Python/etc. via the same gate; each frozen with its own `onboarding_manifest`. Adds the `extractor_onboard` skill (FR-DC-19): on Branch A it proposes/refines an extractor against a code sample and emits a reviewable enhancement artifact for human freeze. Not built this slice — C is onboarded manually (TASK-009/012); the model-only fallback (TASK-010) covers any unonboarded language meanwhile.
 - **Multi-domain** — additional domain seams + `domains_index.yaml`; the YAML baseline extraction deferred under D2. (FR-BR-11/14, FR-XS-21 — all W.)
 - **Metrics dashboard / SQLite** — promote the JSONL ledger to a queryable store + dashboard. (D8 persistence split; FR-MX-*.)
 - **Auto-launch / Claude-only spine convenience** — operator-gesture automation beyond the two-step Generate.

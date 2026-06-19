@@ -84,7 +84,8 @@ this is the mechanism behind the "Stratus include idiom" hazard (Tier 3): a file
 sum to files_seen, and `coverage = extracted/seen`):
 
 - **extracted** — the deterministic extractor produces a complete structural entry (all interfaces +
-  all cross-module edges resolved). `coverage: deep` candidate.
+  all cross-module edges resolved). **`coverage: coarse`, deep-eligible** — the extractor emits
+  `coarse` for *every* file (§5.5; only the Stage-2 deep pass promotes to `deep`). See `SIGNOFF.md`.
 - **fallback** — a partial entry: symbols and most edges found, but ≥1 *stored* function-pointer call
   site binds to a known in-tree target the map *ought* to link but cannot. `coverage: coarse`.
 - **unresolved** — the file's primary structure is invisible to the index (macro-generated functions,
@@ -117,7 +118,7 @@ sum to files_seen, and `coverage = extracted/seen`):
 | `src/config/brand_rules.h` | config | `brand_rule_t` struct + `get_brand_rule()` proto |
 | `vendor/stratus/tpf_compat.h` | (vendor) | `#pragma stratus` idioms, `STRATUS_SVC` macro, extern decls — extractable as a header; the *hazard* is that includers reference it via an index-escaping path |
 
-### Tier 1 — clean `.c` (extracted, `coverage: deep`) — 15 files
+### Tier 1 — clean `.c` (extracted, `coverage: coarse`, deep-eligible) — 15 files
 
 | File | Module | Tags | Clean cross-module calls (→ depends_on) |
 |------|--------|------|------------------------------------------|
@@ -128,8 +129,8 @@ sum to files_seen, and `coverage = extracted/seen`):
 | `src/settlement/ledger_post.c` | settlement | `settlement` | — |
 | `src/messaging/formatter.c` | messaging | `message_format` | `messaging/iso8583` |
 | `src/messaging/iso8583.c` | messaging | `message_format` | — |
-| `src/transaction/txn_lifecycle.c` | transaction | `transaction_flow` | `transaction/auth_handler`, `transaction/capture_handler`, `transaction/settle_handler`, `routing/brand_router`, `routing/capture_route` |
-| `src/transaction/txn_state.c` | transaction | `transaction_flow` | — |
+| `src/transaction/txn_lifecycle.c` | transaction | `transaction_flow` | `transaction/auth_handler`, `transaction/capture_handler`, `transaction/settle_handler`, `transaction/txn_state`, `routing/brand_router`, `routing/capture_route` |
+| `src/transaction/txn_state.c` | transaction | `transaction_flow` | — *(called by `txn_lifecycle` via `txn_advance()` — see `used_by` §5)* |
 | `src/transaction/auth_handler.c` | transaction | `transaction_flow` | — |
 | `src/transaction/capture_handler.c` | transaction | `transaction_flow` | — |
 | `src/transaction/settle_handler.c` | transaction | `transaction_flow` | — |
@@ -213,10 +214,11 @@ macro-generated `*_route` (invisible symbols), and `routing/dispatch.c` computed
 | `transaction/auth_handler` | `transaction/txn_lifecycle` *(+ unresolved table path from `routing/route_table`)* |
 | `transaction/capture_handler` | `transaction/txn_lifecycle` |
 | `transaction/settle_handler` | `transaction/txn_lifecycle` |
+| `transaction/txn_state` | `transaction/txn_lifecycle` |
 | `errors/error_codes` | `errors/retry` |
 
-Files with no `used_by` from another module in this fixture: `transaction/txn_state`,
-`errors/fallback`, `config/feature_flags` (entry points / not yet wired into a caller within the tree).
+Files with no `used_by` from another module in this fixture: `errors/fallback`,
+`config/feature_flags` (entry points / not yet wired into a caller within the tree).
 
 ---
 
