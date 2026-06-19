@@ -29,8 +29,8 @@ on demand, only for the slice an impact assessment points at.
 - Start from the **file tree** and **entry points** (cheap) to establish module structure.
 - **Prefer deterministic tooling on large repos.** Use language-appropriate tools to extract structure
   and edges mechanically and cheaply — file-tree listing, a grep/parse pass over the language's
-  import/include statements, and symbol/cross-reference tools (e.g. ctags/cscope for C, a language
-  server, or a dependency-graph tool). Reserve the model for the `purpose`/`tags` summarization it is
+  import/include statements, and symbol/cross-reference tools (e.g. `tree-sitter` for C per ADR-001, a
+  language server, or a dependency-graph tool). Reserve the model for the `purpose`/`tags` summarization it is
   actually good at. The per-language extractor is **onboarded once and frozen** (human-gated); this skill
   **consumes** it and does **not** generate or modify it at map-build runtime (see FR-DC-14…17). When no
   frozen extractor exists for a language, fall back to model-derived structure and mark it lower-coverage.

@@ -49,10 +49,10 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-003 — PDF fixtures: 2× Mastercard mandate PDFs + `expected_manifest_entries.json` oracle for TASK-034 · `Sonnet`
 - [x] TASK-004 — Synthetic Stratus C repo: payment routing code with function-pointer dispatch, macros, `#ifdef` patterns the extractor must handle · `Sonnet`
 - [x] TASK-005 — Hand-author `expected_code_map.json` against C fixtures; human-signed-off oracle that grades TASK-012 · `Sonnet`
-- [ ] TASK-006 — Check `ctags`/`cscope` on PATH; write `ENV_PRECHECK.md` with version or fallback decision · `Sonnet`
-- [ ] TASK-007 — Record Copilot/VDI PASSED 2026-06-16 note in `ENV_PRECHECK.md` (no re-run needed) · `Sonnet`
+- [x] TASK-006 — Check C extractor tooling (`tree-sitter`/`tree-sitter-c` per ADR-001); write `ENV_PRECHECK.md` with version or fallback decision · `Sonnet`
+- [x] TASK-007 — Record Copilot/VDI PASSED 2026-06-16 note in `ENV_PRECHECK.md` (no re-run needed) · `Sonnet`
 - [ ] TASK-008 — Language detection + dispatcher skeleton in `code_map_build.skill.md`; normalization contract maps any extractor output to §3.3 shape · `Sonnet`
-- [ ] TASK-009 — C extractor: wrap `ctags`/`cscope` → structural fields only; mark function-pointer/macro/`#ifdef` blindspots as `coverage: coarse` · `Sonnet`
+- [ ] TASK-009 — C extractor: `tree-sitter` (ADR-001) → structural fields only; mark function-pointer/macro/`#ifdef` blindspots as `coverage: coarse` · `Sonnet`
 - [ ] TASK-010 — Model-only fallback branch: when no frozen extractor exists, derive structure via model, force all entries `coverage: coarse` · `Sonnet`
 - [ ] TASK-011 — Model enrichment: model sets `purpose`+`tags` only; deterministic `merge_edges`; assert `tags ⊆ vocabulary` · `Sonnet`
 - [ ] TASK-012 — Validate extractor output vs signed-off oracle; meet coverage floor 0.80; human-gate freeze; write `onboarding_manifest.yaml` · `Sonnet`
@@ -200,13 +200,13 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 ## Bucket 2 — Environment / tooling
 
-### TASK-006 — `ctags`/`cscope` availability + fallback note
-- **Phase:** P1 · **Depends on:** none.
-- **Model:** Sonnet — shell commands to check tool presence + write a short note file
-- **Reads:** `docs/TECH_SPEC.md` §5.2 (`tools_required: [ctags, cscope]`), §5.5/§5.7 (model-only fallback; port-time `port_check`).
-- **Creates / edits:** `docs/ENV_PRECHECK.md` (PATH results + provisioning/fallback decision per tool).
-- **Do:** Confirm the C tooling; record provisioning or the model-only fallback where absent. Note this is a **port-time** check (§5.7), mirrored by the FR-XS-26 allow-list prerequisite.
-- **Acceptance:** per tool — present → version; absent+provisionable → ops step; absent+unprovisionable → `enable_model_fallback(c)` applies (coarse coverage, never hard failure).
+### TASK-006 — C extractor tooling availability + fallback note
+- **Phase:** P1 · **Depends on:** none. · **Toolchain:** `tree-sitter`/`tree-sitter-c` per **ADR-001** (was `ctags`/`cscope`).
+- **Model:** Sonnet — check dep availability (venv import) + write a short note file
+- **Reads:** `docs/design/ADR-001-c-extractor-tree-sitter.md`; `docs/TECH_SPEC.md` §5.2 (`tools_required`), §5.5/§5.7 (model-only fallback; port-time `port_check`).
+- **Creates / edits:** `docs/ENV_PRECHECK.md` (availability results + provisioning/fallback decision per dep).
+- **Do:** Confirm the C tooling (`tree-sitter` + `tree-sitter-c` importable in the venv); record provisioning or the model-only fallback where absent. Note this is a **port-time** check (§5.7), mirrored by the FR-XS-26 allow-list prerequisite.
+- **Acceptance:** per dep — available → version; absent+provisionable → ops step (`pip install`); absent+unprovisionable → `enable_model_fallback(c)` applies (coarse coverage, never hard failure).
 - **Fixture / proof:** `fixtures/c_repo/` (the extractor's first real target).
 - **Satisfies:** FR-DC-14, FR-DC-17, NFR-04.
 
@@ -234,13 +234,13 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Fixture / proof:** `fixtures/c_repo/` detects as `c`.
 - **Satisfies:** FR-DC-15, FR-DC-17.
 
-### TASK-009 — C extractor (ctags/cscope → structural fields)
-- **Phase:** P1 · **Depends on:** TASK-008
-- **Model:** Sonnet — Python wrapper around ctags/cscope; clear input/output contract in §5.5 (dispatcher), TASK-004 (`fixtures/c_repo/`).
-- **Reads:** `docs/TECH_SPEC.md` §5.5 (extractor owns structural fields only), §3.3 (file-entry schema, `coverage_report`); `docs/REQUIREMENTS.md` FR-DC-17.
-- **Creates / edits:** `core/extractors/c_extractor.py` (+ tool shims).
-- **Do:** Wrap `ctags`/`cscope` to pull **structural fields only** (`path/module/interfaces/depends_on/used_by`) and emit a `coverage_report`. Mark static-analysis blind spots (function pointers/macros/`#ifdef`) as `coverage: coarse` with `unresolved_patterns`.
-- **Acceptance:** the extractor emits the structural fields per §3.3; it does **not** set `purpose`/`tags` (those are TASK-011); `merge_edges` (TASK-011) consumes its `depends_on`/`used_by`.
+### TASK-009 — C extractor (tree-sitter → structural fields)
+- **Phase:** P1 · **Depends on:** TASK-008 · **Toolchain:** `tree-sitter` + `tree-sitter-c` per **ADR-001**.
+- **Model:** Sonnet — Python extractor using `tree-sitter-c` CST queries; clear input/output contract in §5.5 (dispatcher), TASK-004 (`fixtures/c_repo/`).
+- **Reads:** `docs/design/ADR-001-c-extractor-tree-sitter.md`; `docs/TECH_SPEC.md` §5.5 (extractor owns structural fields only), §3.3 (file-entry schema, `coverage_report`); `docs/REQUIREMENTS.md` FR-DC-17.
+- **Creates / edits:** `core/extractors/c_extractor.py`.
+- **Do:** Use `tree-sitter-c` to parse each file and pull **structural fields only** (`path/module/interfaces/depends_on/used_by`) and emit a `coverage_report`. **Exclude `static` file-local functions from `interfaces[]`.** Mark static-analysis blind spots (function pointers via `field_expression`/computed callees, macro-generated functions surfaced as `ERROR` nodes, `#ifdef`/vendor escapes) as `coverage: coarse` with `unresolved_patterns`.
+- **Acceptance:** the extractor emits the structural fields per §3.3; it does **not** set `purpose`/`tags` (those are TASK-011); `merge_edges` (TASK-011) consumes its `depends_on`/`used_by`; output matches the TASK-005 oracle on `fixtures/c_repo`.
 - **Fixture / proof:** runs over `fixtures/c_repo/` and produces structural entries for the easy files; flags the hard patterns.
 - **Satisfies:** FR-DC-15, FR-DC-17.
 

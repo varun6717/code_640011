@@ -134,6 +134,14 @@ domain: payment_brand               # selects profiles/templates/adapter/vocabul
 runtime_tool: copilot               # claude | copilot  (the UI switch, FR-XS-06)
 registry_sha: 7d2e9a1               # pinned registry commit (FR-XS-10, NFR-01)
 
+# project identity / governance metadata — config only; feeds traceability + later Jira controls
+project_metadata:
+  project_name:     "Discover Brand Routing"   # also seeds frame.title
+  application_name: "MerchantRoutingSvc"        # JPMC application; replaces a project-level Seal ID for MVP
+  line_of_business: "Merchant Services"
+  requestor:        "Varun Munjal"
+  requestor_sid:    "vmunjal"                    # user / LDAP id
+
 # requirement / project frame — the operator's authoritative "what we're building now"
 frame:
   title: "Add Discover brand routing to merchant settlement"
@@ -375,7 +383,7 @@ This is the newest and densest block (FR-DC-14…17, handed forward in C5). It r
 
 ### 5.1 Terms (from REQUIREMENTS D6 note)
 
-- **Extractor** — the per-language deterministic utility that pulls structure + dependency edges from code (e.g. `ctags`/`cscope` for C), wrapped by a committed `extractors/<lang>_extractor.py`.
+- **Extractor** — the per-language deterministic utility that pulls structure + dependency edges from code (for C: `tree-sitter` + `tree-sitter-c`, per ADR-001), wrapped by a committed `extractors/<lang>_extractor.py`.
 - **Onboarding** — the one-time, human-gated step that authors/refines an extractor against real code.
 - **Freeze** — commit it as a fixed, version-controlled artifact (recorded by `extractor_sha`).
 - **Onboarding manifest** — records which extractors are frozen (per language) and the content hash each map was built against (per repo).
@@ -388,7 +396,7 @@ extractors:
   - language: c
     extractor: core/extractors/c_extractor.py
     extractor_sha: 4a91c0f                 # content hash of the frozen extractor file
-    tools_required: [ctags, cscope]        # external tools it shells out to
+    tools_required: [tree-sitter==0.25.2, tree-sitter-c==0.24.2]   # pip deps imported in-venv (ADR-001); not PATH binaries
     file_globs: ["*.c", "*.h"]
     coverage_floor: 0.80                   # below this on a repo build → re-onboarding flag (FR-DC-16)
     frozen_at: 2026-06-10T00:00:00Z
@@ -461,7 +469,7 @@ dispatch(repo) -> code_map.json:
   L = detect_language(repo)                          # deterministic
   E = manifest.extractor_for(L)
   if E:
-      raw     = E.run(repo)                           # frozen tool (ctags/cscope/…) → raw symbols+edges
+      raw     = E.run(repo)                           # frozen tool (tree-sitter-c for C; …) → raw symbols+edges
       entries = normalize(raw)                        # → code_map FILE-ENTRY shape (the contract below)
       cov     = "coarse"                              # per D6a; deep pass confirms
   else:
@@ -492,13 +500,13 @@ The frozen extractor is plumbing committed to `core/extractors/`; it **ports unc
 ```
 port_check(manifest, VDI):
   for E in manifest.extractors:
-      for tool in E.tools_required:                 # e.g. ctags, cscope
-          if not on_PATH(tool):
-              if provisionable(tool):   provision(tool)        # ops task
+      for tool in E.tools_required:                 # C: tree-sitter, tree-sitter-c (pip, in-venv) — ADR-001
+          if not available(tool):                   # importable in the venv (or, for a PATH-binary tool, on PATH)
+              if provisionable(tool):   provision(tool)        # ops task (e.g. pip install into the VDI venv)
               else:                     enable_model_fallback(E.language)   # marks coverage lower, flags
 ```
 
-This is surfaced at Generate/onboarding as a **VDI prerequisite** (the same shape as the FR-XS-26 allow-list provisioning: a prerequisite Generate names, not something the scaffolder emits). The model-only fallback (§5.5) is the safety net when a tool is absent and unprovisionable — correctness degrades to coarse-coverage, never to a hard failure.
+For the C extractor the tools are **Python packages** (`tree-sitter` + `tree-sitter-c`, per ADR-001), so `available(tool)` is "import succeeds in the venv," not "binary on PATH" — chosen because the AppLocker-locked VDI cannot cleanly provision PATH binaries (`ctags`/`cscope`) while pip runs in-policy. This is surfaced at Generate/onboarding as a **VDI prerequisite** (the same shape as the FR-XS-26 allow-list provisioning: a prerequisite Generate names, not something the scaffolder emits). The model-only fallback (§5.5) is the safety net when a tool is absent and unprovisionable — correctness degrades to coarse-coverage, never to a hard failure.
 
 ---
 

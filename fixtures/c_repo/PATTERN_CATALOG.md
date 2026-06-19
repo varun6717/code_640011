@@ -5,7 +5,7 @@ TASK-011 (`merge_edges` + enrichment), TASK-012 (validate vs oracle), TASK-013 (
 TASK-036 (onboarding skill).
 
 This catalog is the **sign-off artifact**: it declares, per file, what the deterministic extractor
-(`ctags`/`cscope` wrapped per §5.5) is expected to resolve, what it is expected to miss, and the
+(`tree-sitter` + `tree-sitter-c` per ADR-001, normalized per §5.5) is expected to resolve, what it is expected to miss, and the
 expected `coverage_report`. TASK-005 hand-authors `expected_code_map.json` against the edge tables
 and tier assignments below; TASK-012 grades the frozen extractor against that oracle.
 
@@ -151,7 +151,7 @@ sum to files_seen, and `coverage = extracted/seen`):
 | File | Module | Tags | Hazard |
 |------|--------|------|--------|
 | `src/routing/dispatch.c` | routing | `routing`, `card_brand` | **Computed call target.** `dispatch_generic()` gets an opaque `const brand_handler_t *` from `lookup_handler()`, selects a member by computed index, and calls through it; `dispatch_via_ctx()` casts a raw `void*` from `brand_ctx`. Targets are unknowable. (One clean edge survives: `routing/brand_registry` via `lookup_handler`.) This is the canonical "function-pointer dispatch in dispatch.c". |
-| `src/config/brand_rules.c` | config | `card_brand` | **Macro-generated functions.** `DECLARE_BRAND_HANDLER(brand)` token-pastes whole `<brand>_route` function definitions; ctags does not expand macros, so `visa_route`/`mastercard_route`/`amex_route`(/`discover_route`) are invisible. Only `get_brand_rule()` is resolvable, so the interface is under-reported. |
+| `src/config/brand_rules.c` | config | `card_brand` | **Macro-generated functions.** `DECLARE_BRAND_HANDLER(brand)` token-pastes whole `<brand>_route` function definitions; the parser does not expand macros (the invocation surfaces as an `ERROR` node), so `visa_route`/`mastercard_route`/`amex_route`(/`discover_route`) are invisible. Only `get_brand_rule()` is resolvable, so the interface is under-reported. |
 | `src/config/feature_flags.c` | config | `card_brand` | **`#ifdef` + Stratus include.** Registration blocks gated by `ENABLE_DISCOVER`/`ENABLE_STRATUS_SVC`; `STRATUS_SVC()` and `stratus_*` come from `../../vendor/stratus/tpf_compat.h` via an index-escaping path. Both the conditional branches and the vendor symbols are unresolvable. |
 
 ---
@@ -171,7 +171,7 @@ routing/brand_router.c  --reconcile_txn()-->  settlement/reconciler.c  --format_
 This realizes D6b's worked example: *"Brand routing is shared with settlement reconciliation — adding a
 brand also changes settlement, not just routing."* The deep pass (TASK-041) traces this closure to raise
 a `scope_ripple` flag. The test of `merge_edges` is whether it stitches the two-hop closure, **not**
-whether ctags finds the symbols (it does).
+whether the parser finds the symbols (it does).
 
 `depends_on` / `used_by` for the chain:
 - `brand_router` `depends_on` `settlement/reconciler`; `reconciler` `used_by` `routing/brand_router`
@@ -226,11 +226,11 @@ Files with no `used_by` from another module in this fixture: `errors/fallback`,
 
 | Hazard (file) | Why static analysis can't resolve it | What the extractor MUST report |
 |---------------|---------------------------------------|--------------------------------|
-| Function-pointer vtable dispatch (`route_table.c`) | Target bound at runtime via `route_table_install`; cscope sees the array, not the call target | `coverage: coarse`; omit the routing→transaction edge from `depends_on`; add to `unresolved_patterns` |
+| Function-pointer vtable dispatch (`route_table.c`) | Target bound at runtime via `route_table_install`; the parser sees the array + the `field_expression` callee (`entry->handler->route`), not the runtime target | `coverage: coarse`; omit the routing→transaction edge from `depends_on`; add to `unresolved_patterns` |
 | Callback registration (`brand_registry.c`) | `.route` members point to macro-generated symbols; registration→dispatch link not traceable | `coverage: coarse`; resolve `register_brand`/`lookup_handler`/`brand_name` interfaces; flag the vtable bindings unresolved |
 | Codec fn-ptr table (`field_codec.c`) | Concrete codec chosen dynamically by field index | `coverage: coarse`; resolve `encode_field`/`decode_field`; flag the indirect call |
 | Computed dispatch (`dispatch.c`) | Opaque vtable pointer + computed member + `void*` cast | `coverage: coarse`; keep the clean `lookup_handler` edge; flag both dispatch sites unresolved |
-| Macro-generated functions (`brand_rules.c`) | ctags does not expand `DECLARE_BRAND_HANDLER`; generated `*_route` invisible | `coverage: coarse`; resolve only `get_brand_rule`; report interface as under-reported (generated symbols missing) |
+| Macro-generated functions (`brand_rules.c`) | the parser does not expand `DECLARE_BRAND_HANDLER` (invocation surfaces as an `ERROR` node); generated `*_route` invisible | `coverage: coarse`; resolve only `get_brand_rule`; report interface as under-reported (generated symbols missing) |
 | `#ifdef` + non-standard include (`feature_flags.c`) | Inactive `#ifdef` branches not indexed; `vendor/` escapes index roots | `coverage: coarse`; flag conditional registration + the Stratus include as unresolved |
 
 ---

@@ -1,0 +1,8 @@
+# Python venv for the C extractor toolchain (tree-sitter; ADR-001) — provisioned per-environment
+.venv/
+
+# macOS
+.DS_Store
+
+# scratch / throwaway probes
+scratch_*.py
