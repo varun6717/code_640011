@@ -51,7 +51,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-005 — Hand-author `expected_code_map.json` against C fixtures; human-signed-off oracle that grades TASK-012 · `Sonnet`
 - [x] TASK-006 — Check C extractor tooling (`tree-sitter`/`tree-sitter-c` per ADR-001); write `ENV_PRECHECK.md` with version or fallback decision · `Sonnet`
 - [x] TASK-007 — Record Copilot/VDI PASSED 2026-06-16 note in `ENV_PRECHECK.md` (no re-run needed) · `Sonnet`
-- [ ] TASK-008 — Language detection + dispatcher skeleton in `code_map_build.skill.md`; normalization contract maps any extractor output to §3.3 shape · `Sonnet`
+- [x] TASK-008 — Language detection + dispatcher skeleton in `code_map_build.skill.md`; normalization contract maps any extractor output to §3.3 shape · `Sonnet`
 - [ ] TASK-009 — C extractor: `tree-sitter` (ADR-001) → structural fields only; mark function-pointer/macro/`#ifdef` blindspots as `coverage: coarse` · `Sonnet`
 - [ ] TASK-010 — Model-only fallback branch: when no frozen extractor exists, derive structure via model, force all entries `coverage: coarse` · `Sonnet`
 - [ ] TASK-011 — Model enrichment: model sets `purpose`+`tags` only; deterministic `merge_edges`; assert `tags ⊆ vocabulary` · `Sonnet`
