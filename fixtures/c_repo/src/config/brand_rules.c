@@ -43,8 +43,8 @@ const brand_rule_t *get_brand_rule(brand_id_t brand)
  * The macro hazard. Each invocation expands to a full function definition that
  * ctags cannot see. cscope cannot trace calls into these symbols.
  */
-#define DECLARE_BRAND_HANDLER(brand)                          \
-    int brand##_route(txn_t *t)                               \
+#define DECLARE_BRAND_HANDLER(br)                             \
+    int br##_route(txn_t *t)                                  \
     {                                                         \
         const brand_rule_t *r = get_brand_rule(t->brand);     \
         if (!r)                                               \
