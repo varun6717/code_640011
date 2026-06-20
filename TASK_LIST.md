@@ -56,7 +56,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-010 — Model fallback over a file set (whole-repo + polyglot residue, ADR-002): derive structure via model, mark entries `coverage: coarse`, residue → `files_fallback` · `Sonnet`
 - [x] TASK-011 — Model enrichment: model sets `purpose`+`tags` only; deterministic `merge_edges`; assert `tags ⊆ vocabulary` · `Sonnet`
 - [x] TASK-012 — Validate extractor output vs signed-off oracle; meet coverage floor 0.80; human-gate freeze; write `onboarding_manifest.yaml` (incl. reserved `vocab_sha`/`adequacy_threshold`, ADR-003) · `Sonnet`
-- [ ] TASK-013 — 3-branch gate (fully model-free): onboard / reuse-cached / rebuild-changed-files; `REONBOARD_FLAG` if below floor; **+ L1 vocabulary-adequacy detector** (`uncovered_concepts` recurrence + `untagged_ratio` floor → `VOCAB_GAP_FLAG`, ADR-003) + `vocab_sha` cache key · `Sonnet`
+- [x] TASK-013 — 3-branch gate (fully model-free): onboard / reuse-cached / rebuild-changed-files; `REONBOARD_FLAG` if below floor; **+ L1 vocabulary-adequacy detector** (`uncovered_concepts` recurrence + `untagged_ratio` floor → `VOCAB_GAP_FLAG`, ADR-003) + `vocab_sha` cache key · `Sonnet`
 - [ ] TASK-014 — Transcribe D5 vocabulary table verbatim into `vocabulary.payment_brand.yaml` (12 tags, emitted-by mapping) · `Sonnet`
 - [ ] TASK-015 — Author `brd_profile.payment_brand.yaml`: `must_capture` + `probe_if_missing` per topic per section; foundation every BRD run depends on · `Opus`
 - [ ] TASK-016 — Author `frd_profile.payment_brand.yaml`: same shape + `functional_kind` + `traces_to` resolving to real BRD anchors · `Opus`

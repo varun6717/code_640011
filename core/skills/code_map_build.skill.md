@@ -65,7 +65,7 @@ dispatch(repo) -> code_map.json:                      # TECH_SPEC §5.5, revised
       apply_enrichment(e, purpose, tags)               # core.extractors — writes ONLY purpose+tags (guard)
       uncovered += unc                                 # → ledger, NOT the map (ADR-003 / FR-DC-21)
   assert_tags_in_vocabulary(entries, vocab)            # core.extractors — DETERMINISTIC gate; D5 / §10
-  vocab_adequacy(entries, uncovered)                   # TASK-013 — VOCAB_GAP_FLAG (adequacy, §5.4.1); never blocks
+  check_vocab_adequacy(entries, uncovered, threshold)  # core/scripts/checks/vocab_adequacy.py — VOCAB_GAP_FLAG (§5.4.1); never blocks
   edges = merge_edges(entries)                         # core.extractors.merge_edges — DETERMINISTIC closure
   return assemble(entries, edges, coverage_report)     # files_seen = ALL source files; residue = files_fallback;
                                                         #   coverage = files_extracted / files_seen (§5.4 / ADR-002).
@@ -233,7 +233,7 @@ model cannot raise it by inventing a tag (`tags ⊆ vocabulary` forbids that). I
     this second case (the file is non-empty); `uncovered_concepts` does not.
 - **It does not land on the map.** `apply_enrichment(e, purpose, tags)` still writes **only** `purpose`+`tags`
   to the `code_map` entry (the guard is unchanged). `uncovered_concepts` has no tag by definition — it routes
-  nothing — so it goes to the **ledger** (`decisions.jsonl`/telemetry via the gate, TASK-013), never the map.
+  nothing — so it goes to the **ledger** (`decisions.jsonl`/telemetry via the gate's post-build path), never the map.
 - **The gate aggregates it deterministically.** Across the *net-new* files of a build (the gate's `git_diff`
   delta), a concept that **recurs** is raised as a `VOCAB_GAP_FLAG` naming the concept + evidence files; a
   deterministic `untagged_ratio` (count of `tags == []`) runs underneath as a **model-free floor** (catches
@@ -248,11 +248,55 @@ deterministic `merge_edges(entries)` step that runs *after* enrichment (it does 
 This is why the C extractor leaves `used_by` empty (TASK-009) — the merge owns it, not the extractor and
 not the model.
 
-### Gate (forward reference)
+### The 3-branch gate (TASK-013 — §5.3, deterministic, model-free)
 
-The 3-branch onboarding/cache gate (onboard / reuse-cached / rebuild-changed-files) wraps this dispatch
-and is **fully deterministic** (no model in the branch decision). It is built in TASK-013 (§5.3) on top of
-these same `detect_language` / `extractor_for` primitives.
+The gate wraps `dispatch` and decides **whether to build a map at all**. Its inputs are **only**
+deterministic signals — `detect_language`, `extractor_for` (presence), the repo `content_hash` (= git
+commit_sha), the frozen `extractor_sha`, and the `vocab_sha` — and **no model participates in the branch
+decision** (FR-DC-15). The *decision* is a pure committed function, `core/scripts/gate.py::select_branch`;
+this skill gathers the signals, calls it, then performs the chosen branch's *action*. Decision in code,
+orchestration in the skill — so "model-free" is testable, not merely asserted (run `python3
+core/scripts/gate.py` for the branch table).
+
+```
+GATE(repo @ commit C_new, manifest):                  # core/scripts/gate.py — pure decision
+  L  = detect_language(repo)                           # core.extractors — deterministic
+  E  = manifest.extractor_for(L)                       # frozen extractor + extractor_sha, or None
+  R  = manifest.repo_for(repo, seal_id)                # cached repos[] entry, or None
+  d  = select_branch(language=L, extractor_sha=E.sha,  # vocab_sha is part of the cache key (ADR-003)
+                     vocab_sha=manifest.vocab_sha, content_hash_new=C_new, repo_cache=R)
+
+  A  onboard          → request_onboarding(L); meanwhile model-only fallback, coarse  (inert on slice — C frozen)
+  B  reuse            → load(R.code_map_path)                                          (no rebuild)
+  C  retag            → retag_only(R.code_map_path, vocab_sha)   # vocab-only: structure+purpose reused
+  C  rebuild_full     → build(repo, ALL_FILES(E.file_globs), E)  # new repo OR extractor re-blessed
+  C  rebuild_changed  → build(repo, git_diff_names(R.content_hash, C_new, E.file_globs), E)  # changed files only
+  # after any C build: manifest.update_repo(content_hash=C_new, built_with_extractor_sha=E.sha,
+  #                                          built_with_vocab_sha=manifest.vocab_sha)
+  #   check_coverage(map, E.coverage_floor)            # §5.4  → reonboard_flag if below
+  #   check_vocab_adequacy(map, uncovered, threshold)  # §5.4.1 → vocab_gap_flag(s) if a gap
+```
+
+The frozen extractor is **never** modified by any branch — re-blessing it is the human-gated onboarding
+step (FR-DC-19, deferred), which mints a new `extractor_sha` and so invalidates affected caches into a
+`rebuild_full`. `vocab_sha` is the same mechanism for the dictionary: a human-gated amendment bumps it →
+the cheap `retag` path (only the tag pass re-runs). While D5 is frozen `vocab_sha` is constant and the
+guard is inert (the reserved-hook discipline of FR-DC-13).
+
+**Post-build flags (both advisory — the run is never blocked; §10 containment stays the hard gate).**
+
+- **`check_coverage` → `REONBOARD_FLAG`** (`core/scripts/gate.py::check_coverage`, §5.4): `coverage < floor`
+  (0.80) names the un-onboarded/under-covered language + `unresolved_patterns`. A polyglot repo whose
+  residue drops it below floor trips here. Written by `core/scripts/decisions.py::reonboard_flag`.
+- **`check_vocab_adequacy` → `VOCAB_GAP_FLAG`** (`core/scripts/checks/vocab_adequacy.py`, §5.4.1): the L1
+  detector aggregates the `uncovered_concepts` from enrichment across the net-new delta — a concept
+  recurring in ≥ `MIN_RECUR` files raises the **primary** flag (catches the *partially*-uncovered file an
+  empty-count misses), with the deterministic `untagged_ratio` vs `adequacy_threshold` (0.20) as the
+  model-free **floor** underneath. `untagged_ratio` is emitted as telemetry **every run** (trend line).
+  Written by `core/scripts/decisions.py::vocab_gap_flag`.
+
+Both flags are hand-raises a **human** dispositions (`re-onboard` / `amend-vocab` / `accept-as-is`); neither
+artifact is ever auto-modified. The model *proposal*/amendment/re-tag half (L2) is deferred (port-time, §5.4.1).
 
 ---
 
