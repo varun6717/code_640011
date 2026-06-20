@@ -224,14 +224,14 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 
 > The whole bucket preserves: extractor **deterministic + frozen** (FR-DC-14), gate **model-free** (FR-DC-15), model owns **only `purpose`+`tags`** (FR-DC-17).
 
-### TASK-008 — Language detection + dispatcher (normalization contract)
-- **Phase:** P1 · **Depends on:** none.
+### TASK-008 — Language detection + partition + dispatcher (normalization contract)
+- **Phase:** P1 · **Depends on:** none. · **Amended by ADR-002** (per-language partition dispatch).
 - **Model:** Sonnet — Python dispatcher logic + skill markdown; clear spec in §5.5
-- **Reads:** `docs/TECH_SPEC.md` §5.5 (the `dispatch()` pseudocode + normalization contract), §5.1 (terms), §3.3 (file-entry schema).
-- **Creates / edits:** `core/skills/code_map_build.skill.md` (refine the seed `docs/code_map_build.skill.md`) — the dispatcher portion: `detect_language` → `extractor_for(L)` → `normalize` → `merge_edges`; and a thin `core/extractors/__init__` registration point.
-- **Do:** Implement deterministic language detection (file-glob histogram + build-manifest signals) and the dispatch skeleton that routes to a per-language extractor and normalizes its output to the §3.3 file-entry shape.
-- **Acceptance:** `detect_language` is deterministic (no model); the normalization contract maps any extractor's raw output to `path/module/interfaces/depends_on/used_by/coverage`; dispatcher has a slot for the C extractor (TASK-009) and the fallback (TASK-010).
-- **Fixture / proof:** `fixtures/c_repo/` detects as `c`.
+- **Reads:** `docs/TECH_SPEC.md` §5.5 (the `dispatch()` pseudocode + normalization contract), §5.1 (terms), §3.3 (file-entry schema); `docs/design/ADR-002-polyglot-partition-dispatch.md`.
+- **Creates / edits:** `core/skills/code_map_build.skill.md` (refine the seed `docs/code_map_build.skill.md`) — the dispatcher portion: `partition_by_language` → per partition `extractor_for(lang)` → `normalize` → `merge_edges`; and a thin `core/extractors/__init__.py` registration point.
+- **Do:** Implement deterministic language detection (file-glob histogram + build-manifest signals), `partition_by_language` (ADR-002), and the dispatch skeleton that routes each language partition to its extractor and normalizes output to the §3.3 file-entry shape. `detect_language` retained for the dominant language (top-level + gate/cache key).
+- **Acceptance:** `detect_language` / `partition_by_language` are deterministic (no model); the normalization contract maps any extractor's raw output to `path/module/interfaces/depends_on/used_by/coverage`; dispatcher has a slot for the C extractor (TASK-009) and the fallback (TASK-010).
+- **Fixture / proof:** `fixtures/c_repo/` detects as `c`; `fixtures/mixed_repo/` partitions into `c` (majority) + python/java residue.
 - **Satisfies:** FR-DC-15, FR-DC-17.
 
 ### TASK-009 — C extractor (tree-sitter → structural fields)
