@@ -33,8 +33,11 @@ from typing import Callable, Mapping, Optional, Sequence
 
 # Raw extractor entry — whatever a per-language extractor emits before normalization.
 RawEntry = Mapping[str, object]
-# An extractor is any callable: repo_path -> sequence of raw file entries.
-Extractor = Callable[[str], Sequence[RawEntry]]
+# An extractor is any callable that, given its language partition (the repo-relative
+# file list the dispatcher routed to it, per ADR-002) and the repo root, returns
+# ``{"entries": [raw file entry, ...], "coverage_report": {...}}``. It owns the
+# structural fields + the coverage_report; the model owns purpose/tags (TASK-011).
+Extractor = Callable[[Sequence[str], str], Mapping[str, object]]
 
 # ──────────────────────────────────────────────────────────────────────────────
 # §3.3 file-entry shape — the normalization target. Structural fields are owned
@@ -86,12 +89,21 @@ _BUILD_MANIFEST_SIGNALS: Mapping[str, str] = {
     "package.json": "javascript",
 }
 
-# Directories that never carry first-party source; excluded from the histogram so
-# vendored/build trees cannot swing detection.
-_IGNORED_DIRS = frozenset({
-    ".git", "node_modules", "vendor", "third_party", "build", "dist",
-    "__pycache__", ".venv", "venv",
+# Build/VCS/tooling trees that carry no mappable source. Pruned by *both* stages.
+_NON_SOURCE_DIRS = frozenset({
+    ".git", "node_modules", "build", "dist", "__pycache__", ".venv", "venv",
 })
+
+# Out-of-tree dependency trees. Excluded from `detect_language`'s histogram so a
+# large vendored tree cannot swing the *dominant* language — but NOT excluded from
+# `partition_by_language`: an out-of-tree shim a repo references (e.g. the Stratus
+# compat header in fixtures/c_repo) is real source the code-map must still cover,
+# and the signed oracle counts it as an extracted file. Detection ignores it;
+# extraction enumerates it (ADR-002 — the ignore rationale is about detection only).
+_VENDOR_DIRS = frozenset({"vendor", "third_party"})
+
+# Histogram-ignore set (detection): build trees AND vendored deps.
+_IGNORED_DIRS = _NON_SOURCE_DIRS | _VENDOR_DIRS
 
 
 def detect_language(repo: str) -> Optional[str]:
@@ -149,10 +161,14 @@ def partition_by_language(repo: str) -> dict[str, list[str]]:
     ``partition_by_language`` returns the full per-language file map. Same deterministic
     signals (the extension table); files of unknown extension are omitted (non-source).
     Paths are repo-relative and each language's list is sorted for stable output.
+
+    Enumeration prunes only ``_NON_SOURCE_DIRS`` (build/VCS/tooling), NOT vendored
+    trees: an out-of-tree shim the repo references is real source the map covers,
+    even though detection ignores it. Detection ignores vendor; extraction maps it.
     """
     partitions: dict[str, list[str]] = {}
     for dirpath, dirnames, filenames in os.walk(repo):
-        dirnames[:] = [d for d in dirnames if d.lower() not in _IGNORED_DIRS]
+        dirnames[:] = [d for d in dirnames if d.lower() not in _NON_SOURCE_DIRS]
         for name in filenames:
             lang = _EXTENSION_LANGUAGE.get(os.path.splitext(name)[1].lower())
             if lang is None:
@@ -170,8 +186,9 @@ def partition_by_language(repo: str) -> dict[str, list[str]]:
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Registered, frozen, per-language extractors. Populated as languages are
-# onboarded (§5, human-gated). The C slot is filled by TASK-009; until then it is
-# intentionally absent so a C repo routes to the fallback rather than crashing.
+# onboarded (§5, human-gated). The C slot is filled at import time (below); an
+# unregistered language is intentionally absent so its partition routes to the
+# model fallback (TASK-010) rather than crashing.
 _REGISTRY: dict[str, Extractor] = {}
 
 
@@ -193,6 +210,18 @@ def extractor_for(language: Optional[str]) -> Optional[Extractor]:
     if language is None:
         return None
     return _REGISTRY.get(language)
+
+
+# Onboard the frozen C extractor (TASK-009, tree-sitter per ADR-001). The import
+# is guarded: if the toolchain is absent/unprovisionable (§5.7), "c" simply stays
+# unregistered and a C partition degrades to the model-only fallback — coarse
+# coverage, never a hard failure. "import succeeds in the venv" is the port check.
+try:  # pragma: no cover - exercised by environment, not unit logic
+    from . import c_extractor as _c_extractor
+
+    register_extractor("c", _c_extractor.run)
+except ImportError:
+    pass
 
 
 # ──────────────────────────────────────────────────────────────────────────────
