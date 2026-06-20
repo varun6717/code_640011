@@ -53,7 +53,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-007 — Record Copilot/VDI PASSED 2026-06-16 note in `ENV_PRECHECK.md` (no re-run needed) · `Sonnet`
 - [x] TASK-008 — Language detection + partition + dispatcher skeleton in `code_map_build.skill.md`; normalization contract maps any extractor output to §3.3 shape (per-language partition dispatch per ADR-002) · `Sonnet`
 - [x] TASK-009 — C extractor: `tree-sitter` (ADR-001) over the C partition → structural fields only; mark function-pointer/macro/`#ifdef` blindspots as `coverage: coarse` · `Sonnet`
-- [ ] TASK-010 — Model fallback over a file set (whole-repo + polyglot residue, ADR-002): derive structure via model, mark entries `coverage: coarse`, residue → `files_fallback` · `Sonnet`
+- [x] TASK-010 — Model fallback over a file set (whole-repo + polyglot residue, ADR-002): derive structure via model, mark entries `coverage: coarse`, residue → `files_fallback` · `Sonnet`
 - [ ] TASK-011 — Model enrichment: model sets `purpose`+`tags` only; deterministic `merge_edges`; assert `tags ⊆ vocabulary` · `Sonnet`
 - [ ] TASK-012 — Validate extractor output vs signed-off oracle; meet coverage floor 0.80; human-gate freeze; write `onboarding_manifest.yaml` · `Sonnet`
 - [ ] TASK-013 — 3-branch gate (fully model-free): onboard / reuse-cached / rebuild-changed-files; `REONBOARD_FLAG` if below floor · `Sonnet`

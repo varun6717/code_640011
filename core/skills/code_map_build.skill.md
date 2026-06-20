@@ -55,14 +55,18 @@ dispatch(repo) -> code_map.json:                      # TECH_SPEC §5.5, revised
       if E:
           entries += normalize(E(files))               # frozen tool (tree-sitter-c for C; TASK-009)
       else:
-          entries += model_fallback(files)             # TASK-010 — residue: model derives structure,
-                                                        #   mark_all coverage="coarse" (never dropped)
+          entries += model_fallback(files)             # TASK-010 — model derives structure for a partition
+                                                        #   with no extractor; mark_all coverage="coarse";
+                                                        #   these files are files_fallback (never dropped)
   for e in entries:
       e.purpose, e.tags = model_enrich(e)              # TASK-011 — MODEL owns purpose + tags ONLY
       assert e.tags ⊆ domain_vocabulary                # TASK-011 — D5 / §10
   edges = merge_edges(entries)                         # core.extractors.merge_edges — DETERMINISTIC closure
-  return assemble(entries, edges, coverage_report)     # files_seen counts ALL source files;
-                                                        #   residue = files_fallback (§5.4 / ADR-002)
+  return assemble(entries, edges, coverage_report)     # files_seen = ALL source files; residue = files_fallback;
+                                                        #   coverage = files_extracted / files_seen (§5.4 / ADR-002).
+                                                        #   Force top-level coverage="coarse" ONLY if the WHOLE
+                                                        #   repo fell back (files_extracted == 0); else report
+                                                        #   the computed ratio (§5.5).
 ```
 
 **Polyglot dispatch (ADR-002).** A repo is partitioned by language; the **majority language goes through
@@ -114,6 +118,60 @@ nothing else changes.
   registered extractor — whether that is the whole repo (no extractor for the dominant language) or just
   the **residue** of a polyglot repo (ADR-002). Operates over a **file set**; marks every entry
   `coverage: coarse`; residue files count as `files_fallback` in the `coverage_report`.
+
+### Model fallback — the model-driven escape hatch (TASK-010)
+
+`model_fallback(files)` is the **one structural step the model performs**, and the only one. The frozen
+extractors are deterministic Python (`tree-sitter` for C); this branch exists for the case where there is
+**no frozen extractor to run** — so nothing deterministic *can* run, and the model is the only thing that
+can derive structure from the source. It is the **safety net** (§5.7): when a language is un-onboarded (or
+its toolchain is absent and unprovisionable), correctness degrades to **coarse coverage, never a hard
+failure**. It is not a per-domain branch — ingestion never forks on domain (D7); it forks only on
+"is there a registered extractor for this language?".
+
+**When it runs.** Exactly the partitions where `extractor_for(lang)` is `None` (FR-DC-17) — no guess, no
+heuristic. Two shapes, *one* function (ADR-002 — this is the §5.5 fallback at finer granularity, additive,
+not new):
+- **Whole repo** — no extractor for the dominant language → every file is a fallback file.
+- **Residue** — a polyglot repo whose majority language has a frozen extractor; the leftover non-majority
+  files route here while the majority goes through its extractor. Both halves merge into one `code_map.json`.
+
+**Input.** A **file set** (the repo-relative paths of that partition) — *not* a self-glob of the repo, *not*
+the whole tree. You read those files (bounded, on demand) and derive structure for them only.
+
+**What the model derives — structural fields only, same §3.3 contract as a frozen extractor.** For each
+file: `path`, `module`, `interfaces[]`, `depends_on[]` (best-effort from imports/calls you can see). Leave
+`used_by` to the deterministic `merge_edges` closure, and leave `purpose`/`tags` to `model_enrich` — the
+fallback does **not** pre-empt them; its entries flow through the *same* shared
+`normalize → model_enrich → merge_edges` path as extractor entries, so the rest of the pipeline cannot tell
+the two sources apart. The model is the *origin of structure* here, but it is still **never** the source of
+the detection, the normalization, the edge closure, or the gate decision.
+
+**Coarse, unconditionally.** Mark **every** fallback entry `coverage: "coarse"`. Model-derived structure is
+never promoted to `deep` — only the Stage-2 deep pass (`code_impact`) ever does that, and only on real code.
+
+**Coverage accounting (§5.4 — the honesty mechanism).** Fallback files count as `files_fallback`, **never**
+`files_extracted`. `files_seen` counts *all* source files across every partition. So
+`coverage = files_extracted / files_seen` **drops in exact proportion to the residue** — the deterministic
+share. This self-tunes the only real ambiguity (ancillary scripts vs. a genuine second language): a few
+build scripts barely move coverage and raise nothing; a genuine ~50/50 second language pushes coverage
+below the **0.80 floor**, and `check_coverage` raises a `REONBOARD_FLAG` naming the un-onboarded
+language(s) (§5.4) — a human-decided "should we onboard an extractor for this?", recorded in
+`decisions.jsonl`. The fallback **raises its hand; it never auto-onboards or rewrites a frozen extractor.**
+
+**Top-level coverage — force vs. compute.** Force the top-level `coverage` to `"coarse"` **only when the
+whole repo went to fallback** (no deterministic share exists at all). When an extractor handled the majority
+and only the residue fell back, do **not** force it: report the computed `files_extracted / files_seen`
+ratio — the number itself already carries the degraded signal, and forcing would hide how much *was*
+deterministically covered.
+
+**Worked examples.**
+- `fixtures/mixed_repo/` — `detect_language` = `c`; partitions `c` (4 files → frozen extractor) + residue
+  `java` (1) + `python` (1) → fallback, both coarse. `files_seen = 6`, `files_fallback = 2`;
+  `coverage ≈ 4/6 = 0.67 < 0.80` → `REONBOARD_FLAG(java, python)`. Top-level coverage is the **computed**
+  0.67 (an extractor covered the majority), not force-set.
+- A fully non-C / un-onboarded repo — *every* file routes to fallback; `files_extracted = 0` →
+  `coverage = 0` → below floor, and the top-level coverage is **force-set** `"coarse"` (whole repo fell back).
 
 ### Gate (forward reference)
 
