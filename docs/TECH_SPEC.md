@@ -288,7 +288,10 @@ Per run; append-only. Every gate and flag decision: who, when, outcome, rational
 { "ts": "…", "kind": "gate",  "gate": "G1", "outcome": "accept", "actor": "vmunjal", "version": 1 }
 { "ts": "…", "kind": "flag",  "flag_type": "scope_ripple", "area": "settlement/reconciler", "option": "include in scope", "severity": "material", "rationale": "Settlement shares the brand table; in-scope per ops.", "actor": "vmunjal" }
 { "ts": "…", "kind": "reonboard_flag", "language": "c", "coverage": 0.71, "floor": 0.80, "decision": "re-onboard", "actor": "vmunjal" }
+{ "ts": "…", "kind": "vocab_gap_flag", "arm": "code", "untagged_ratio": 0.34, "threshold": 0.20, "decision": "amend-vocab", "actor": "vmunjal" }
 ```
+
+`vocab_gap_flag` (ADR-003 / FR-DC-21, §5.4.1) records the vocabulary-adequacy detector raising its hand: `untagged_ratio` for the affected `arm` (`code` | `docs`) crossed `adequacy_threshold`, and the operator's disposition (`amend-vocab` | `accept-as-is`). It is the dictionary's twin of `reonboard_flag`; like it, the artifact is **never** auto-modified — a human decides.
 
 ### 3.7 `BRD.md` / `FRD.md` — markdown artifacts (FR-BR-*, FR-FR-*)
 
@@ -401,12 +404,18 @@ extractors:
     coverage_floor: 0.80                   # below this on a repo build → re-onboarding flag (FR-DC-16)
     frozen_at: 2026-06-10T00:00:00Z
     frozen_by: vmunjal
+adequacy_threshold: 0.20                    # untagged_ratio above this → VOCAB_GAP_FLAG (ADR-003 / FR-DC-21, §5.4)
+vocab_sha: d5frozen                         # version of the domain vocabulary the maps below were tagged under
+                                            #   (reserved now per ADR-003; constant while the single domain's
+                                            #   vocabulary is frozen — a future human-gated amendment bumps it)
 repos:
   - repo: merchant-routing-svc
     seal_id: SEAL-12345
     language: c
     content_hash: 9f3c1ab                  # == repo commit_sha the cached map was built against
     built_with_extractor_sha: 4a91c0f
+    built_with_vocab_sha: d5frozen         # vocabulary version the map's tags were assigned under (ADR-003);
+                                           #   a mismatch invalidates the cache → re-tag pass (§5.3 Branch B)
     code_map_path: context_set/code_map.json
     last_built: 2026-06-15T14:02:00Z
 ```
@@ -431,22 +440,29 @@ GATE(repo @ commit C_new, manifest):
       # until onboarded: build via MODEL-ONLY FALLBACK, mark coverage:coarse + lower (FR-DC-17)
 
   # ── BRANCH B — cache hit → REUSE
-  elif R and R.content_hash == C_new and R.built_with_extractor_sha == E.extractor_sha:
+  elif R and R.content_hash == C_new and R.built_with_extractor_sha == E.extractor_sha \
+            and R.built_with_vocab_sha == manifest.vocab_sha:        # vocab version part of the cache key (ADR-003)
       return load(R.code_map_path)                 # no rebuild
 
-  # ── BRANCH C — new repo OR content changed OR extractor re-blessed → REBUILD (extractor stays frozen)
+  # ── BRANCH C — new repo OR content changed OR extractor re-blessed OR vocabulary amended → REBUILD/RE-TAG
   else:
-      if R is None or R.built_with_extractor_sha != E.extractor_sha:
+      if R and R.content_hash == C_new and R.built_with_extractor_sha == E.extractor_sha:
+          retag_only(R.code_map_path, vocab_sha=manifest.vocab_sha)  # vocab-only change: re-tag, structure reused
+          map = load(R.code_map_path)
+      elif R is None or R.built_with_extractor_sha != E.extractor_sha:
           changed = ALL_FILES(repo, E.file_globs)  # full build
+          map = build(repo, changed, extractor=E)   # FROZEN E; model only for purpose/tags (§5.5)
       else:
           changed = git_diff_names(R.content_hash, C_new, E.file_globs)   # rebuild changed files only
-      map = build(repo, changed, extractor=E)       # FROZEN E; model only for purpose/tags (§5.5)
-      manifest.update_repo(repo, content_hash=C_new, built_with_extractor_sha=E.extractor_sha)
-      check_coverage(map, E.coverage_floor)         # §5.4
+          map = build(repo, changed, extractor=E)
+      manifest.update_repo(repo, content_hash=C_new, built_with_extractor_sha=E.extractor_sha,
+                                 built_with_vocab_sha=manifest.vocab_sha)
+      check_coverage(map, E.coverage_floor)         # §5.4 — extractor adequacy (REONBOARD_FLAG)
+      check_vocab_adequacy(map, manifest.adequacy_threshold)         # §5.4 — vocabulary adequacy (VOCAB_GAP_FLAG)
       return map
 ```
 
-The `extractor_sha` guard in Branch B is deliberate: if the frozen extractor was re-blessed (new sha), the cache is stale and Branch C rebuilds — so a re-onboarding always invalidates affected maps.
+The `extractor_sha` guard in Branch B is deliberate: if the frozen extractor was re-blessed (new sha), the cache is stale and Branch C rebuilds — so a re-onboarding always invalidates affected maps. The `vocab_sha` guard (ADR-003) is the same mechanism for the **dictionary**: a human-gated vocabulary amendment bumps `vocab_sha`, invalidating affected maps so their `tags` are recomputed — but because only `tags` depend on the vocabulary, a *vocab-only* change takes the cheap `retag_only` path (structure + `purpose` reused, only the tag pass re-runs), not a structural rebuild. While the single domain's vocabulary is frozen, `vocab_sha` is constant and this guard is inert (the reserved-hook discipline of FR-DC-13).
 
 ### 5.4 Coverage signal + re-onboarding threshold (FR-DC-16)
 
@@ -461,6 +477,22 @@ check_coverage(map, floor):
 ```
 
 Unresolved files are written to `code_map.json` with `coverage: coarse` and confirmed in the **deep pass** (`code_impact`). The re-onboarding decision is recorded in `decisions.jsonl` as `reonboard_flag` (§3.6). This cleanly separates "content changed → rebuild map" (Branch C) from "a structural pattern the tool can't handle → human decides" (this flag).
+
+#### 5.4.1 Vocabulary adequacy detector (L1 — ADR-003, FR-DC-21)
+
+`check_coverage` (above) is *extractor* adequacy — "does the frozen **tool** cover this repo's languages?". `check_vocab_adequacy` is the exact twin for *vocabulary* adequacy — "does the frozen **dictionary** cover this corpus's concepts?". It is **deterministic and model-free** (no model, and it does not even need to load the vocabulary — it counts the empty-`tags` result the enrichment already produced), so it runs in the gate's post-build path beside `check_coverage`:
+
+```
+check_vocab_adequacy(map, threshold):
+  untagged_ratio_code = count(files where tags == []) / max(1, count(files))
+  # doc arm (when the doc manifest exists — §3.2): entries with no topics / total entries
+  emit telemetry(vocab_adequacy: {code: untagged_ratio_code, docs: untagged_ratio_docs})   # every run → trend
+  if untagged_ratio_code > threshold or untagged_ratio_docs > threshold:
+      raise VOCAB_GAP_FLAG(arm=…, ratio=…, threshold=…)   # the dictionary is systematically too small
+      # NEVER auto-grows the vocabulary — a frozen dictionary raises its hand, exactly like REONBOARD_FLAG.
+```
+
+Direction: `untagged_ratio = untagged / total`, so a **high** ratio is the bad one. The threshold (`adequacy_threshold`, §5.2; default `0.20`) is what distinguishes a few legitimately-untaggable files (a utility header, a vendor shim — `tags: []` is *correct*; low ratio, no flag) from a systematic gap (a real second concept the dictionary lacks — high ratio, flag). A `VOCAB_GAP_FLAG` is recorded in `decisions.jsonl` (§3.6) for a human to decide whether to amend the vocabulary; **the run is not blocked** — adequacy is an advisory **runtime flag**, not a build hard-gate (§10 containment remains the hard gate). The model diagnosis of *which* tag to add, and the amendment itself, are the deferred L2 half (FR-DC-21, Phase 5 / port-time); L1 is only the deterministic detector + flag.
 
 ### 5.5 Dispatcher + per-language normalization contract (FR-DC-17)
 
@@ -485,6 +517,8 @@ dispatch(repo) -> code_map.json:
 **Normalization contract (the seam that lets language vary without touching the core).** Every extractor — deterministic or fallback — MUST emit file entries conforming to the `code_map.json` file schema (§3.3): `path, module, interfaces[], depends_on[], used_by[], coverage`. Division of labor is fixed: the **extractor owns structural fields** (`path/module/interfaces/depends_on/used_by`); the **model owns `purpose` + `tags` only** and MUST NOT be the primary source of dependency edges. `merge_edges` (matching one file's outbound refs to another's exposed interfaces) is a deterministic merge step, not a per-file model judgment. Static-analysis blind spots (function pointers, macros, config-driven wiring) are marked `coverage: coarse` and confirmed deep.
 
 The **dispatcher is the only place language varies.** Adding a language = "write one more extractor + onboard it"; the core, the schema, and `code_impact` are untouched.
+
+**`purpose`/`tags` separability (ADR-003).** The two model-owned fields have different dependencies: `purpose` is free text and needs **no** vocabulary, while `tags` is gated by `assert tags ⊆ vocabulary`. In a normal run `model_enrich` writes both back-to-back. The vocabulary-onboarding path (FR-DC-20, deferred) exploits the split — it runs a `purpose`-first pass (vocabulary-independent) to help *propose* a new domain's dictionary, then assigns `tags` last against the frozen result. A consequence that matters in-slice: a file whose concept is not in the vocabulary keeps `tags: []` (honest, never invented) — and that empty-`tags` count is exactly the signal the **vocabulary adequacy detector** reads (§5.4.1, FR-DC-21).
 
 ### 5.6 `code_impact` — coarse / deep (FR-BR-07, FR-BR-12/13, D6b/c)
 
