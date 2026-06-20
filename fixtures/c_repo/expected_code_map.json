@@ -5,7 +5,7 @@
   "generated_at": "2026-06-19T00:00:00Z",
   "coverage": "coarse",
   "language": "c",
-  "built_with_extractor_sha": "PENDING_TASK_012_FREEZE",
+  "built_with_extractor_sha": "125a6ca",
   "components": [
     { "module": "routing",     "purpose": "Dispatches a transaction to the correct card-brand handler" },
     { "module": "settlement",  "purpose": "Reconciliation, batching, and ledger posting of settled transactions" },
