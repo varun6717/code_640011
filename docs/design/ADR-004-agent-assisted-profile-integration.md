@@ -29,6 +29,23 @@ Name a deferred, human-gated skill — working name **`profile_onboard`** — th
 
 The mechanical half (section routing from `emitted_by`/`consumed_by`-style reasoning, `sources` derivation) is nearly deterministic; the discretionary half (`must_capture`/`probe_if_missing` wording — the Opus-grade authoring of TASK-015) is the model **proposal**.
 
+### Two modes — bulk (onboarding) and incremental (drift)
+
+`profile_onboard` runs the *same* propose-not-bless engine in two invocation contexts:
+
+- **Bulk — at onboarding.** Immediately after `domain_onboard` (FR-DC-20) freezes the vocabulary, `profile_onboard` proposes the **complete first profile** — all sections (baseline + proposed net-new, e.g. a `code_impact` section inferred from code-emitted tags) and **every** topic placement with drafted `must_capture`/`probe_if_missing` — from the frozen vocabulary + the D2 baseline. The human refines it conversationally and freezes it **in one session**: *onboard and refine are one act.*
+- **Incremental — at drift.** Later, when the FR-DC-21 amendment loop adds a single tag, `profile_onboard` wires just that one tag into a section (the original gate-3 case).
+
+**Vocabulary-first is mandatory** (§10.1 containment, `profile topics ⊆ vocabulary`): a profile can never reference a tag that does not yet exist, so the profile is always generated *from* an already-frozen vocabulary, never before it. The onboarding sequence is therefore:
+
+```
+extractor_onboard (if new language)  →  domain_onboard (full vocabulary, FR-DC-20)
+   →  profile_onboard BULK (propose full brd+frd profile; human refines + freezes — one session)
+   →  … later, at drift: profile_onboard INCREMENTAL (wire occasional new tags, FR-DC-21 loop)
+```
+
+**A discarded alternative — scaffold-first ("starting profile" then "align").** An earlier framing proposed authoring a topic-less section scaffold *before* the vocabulary, then a second skill to "align" it once the full vocabulary landed. Bulk mode **dissolves that second skill**: because containment forbids a pre-vocabulary profile carrying topics, and bulk mode generates *and* refines the whole profile from the frozen vocabulary in one pass, there is nothing left to align. One skill, two modes — not two skills, two phases.
+
 ## The invariant — why the human gate is structural, not ceremony
 
 The profile is a **build-time, SHA-pinned, human-frozen seam artifact** (§6.6.1: *registration is build-time, human-authored, build-checked, SHA-pinned — never invented by the agent at runtime*). So `profile_onboard` MUST NOT:
