@@ -267,41 +267,178 @@ def normalize(raw_entries: Sequence[RawEntry]) -> list[dict]:
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Edge merge (§5.5) — DETERMINISTIC closure, not a per-file model judgment.
-# Matches one file's outbound references (depends_on) to another file's exposed
-# identity (its module) and back-fills the reverse direction (used_by) so the
-# impact assessment has the closure (FR-DC-10).
+# Matches one file's outbound references (``depends_on``) to the referenced entry
+# and back-fills the reverse direction (``used_by``) so the impact assessment has
+# the closure (FR-DC-10). Both directions use the schema's edge identity — the
+# ``module/stem`` token, exactly as §3.3 shows (``"settlement/reconciler"``,
+# ``"api/transaction_controller"``) and as every extractor emits its edges. The
+# identity is reconstructed from each entry's own resolved ``module`` + filename
+# stem, so the closure is language-agnostic: an extractor varies the *module*
+# resolution, never this merge.
 # ──────────────────────────────────────────────────────────────────────────────
+
+# Header extensions. On an identity collision (a unit's interface header and its
+# implementation share one ``module/stem``), the inbound ``used_by`` attaches to the
+# **implementation**, never the header: ``depends_on: routing/route_table`` means
+# "depends on the route_table *implementation*" (§3.3 / the signed oracle attribute
+# ``used_by`` to the ``.c``, leaving the ``.h`` empty). This is the one file-type
+# notion the merge carries, and it governs edge *attribution* only — never structure.
+_HEADER_EXTENSIONS = frozenset({".h", ".hpp", ".hh", ".hxx"})
+
+
+def _edge_identity(entry: Mapping[str, object]) -> str:
+    """The ``module/stem`` token other entries reference in ``depends_on``/``used_by``.
+
+    Reconstructed from the entry's own resolved ``module`` plus its filename stem —
+    the same convention every extractor emits edges in (§3.3), which is what keeps
+    this closure language-agnostic. A module-less entry degrades to the bare stem.
+    """
+    stem = os.path.splitext(os.path.basename(str(entry["path"])))[0]
+    module = entry.get("module") or ""
+    return f"{module}/{stem}" if module else stem
+
+
+def _is_header(entry: Mapping[str, object]) -> bool:
+    return os.path.splitext(str(entry["path"]))[1].lower() in _HEADER_EXTENSIONS
+
 
 def merge_edges(entries: Sequence[dict]) -> list[dict]:
     """Resolve ``depends_on ↔ used_by`` closure across normalized entries.
 
     Deterministic merge step over the collected entries (§5.5): for every edge
-    ``A.depends_on → B``, ensure ``B.used_by`` contains ``A``. Targets are matched
-    by ``module`` (the identity other files reference) falling back to ``path``.
-    Entries are mutated in place and also returned. Unresolved references (a
-    ``depends_on`` target present in no entry — e.g. an external/cross-repo symbol)
-    are left as-is; the extractor's ``coverage`` flag is what records that gap.
+    ``A.depends_on → B``, ensure ``B.used_by`` contains ``A`` — both named by their
+    ``module/stem`` edge identity. Entries are mutated in place and also returned.
+
+    On an identity collision (header + implementation of one unit) the implementation
+    wins the index, so inbound edges land on the ``.c`` and the header keeps an empty
+    ``used_by`` (the §3.3/oracle convention); the rule is order-independent. Unresolved
+    references (a ``depends_on`` target present in no entry — an external/cross-repo
+    symbol) are left as-is; the extractor's ``coverage`` flag records that gap.
     """
-    by_module: dict[str, dict] = {}
-    by_path: dict[str, dict] = {}
+    by_identity: dict[str, dict] = {}
     for e in entries:
-        by_path[e["path"]] = e
-        if e.get("module"):
-            # First writer wins on a shared module name; deterministic by input order.
-            by_module.setdefault(e["module"], e)
+        ident = _edge_identity(e)
+        current = by_identity.get(ident)
+        # Prefer the implementation over the header; otherwise first writer wins
+        # (deterministic by input order). Order-independent: a header seen first is
+        # replaced by its implementation, an implementation is never demoted.
+        if current is None or (_is_header(current) and not _is_header(e)):
+            by_identity[ident] = e
 
     for src in entries:
+        src_identity = _edge_identity(src)
         for target in src["depends_on"]:
-            dst = by_module.get(target) or by_path.get(target)
+            dst = by_identity.get(target)
             if dst is None or dst is src:
                 continue
-            referrer = src.get("module") or src["path"]
-            if referrer not in dst["used_by"]:
-                dst["used_by"].append(referrer)
+            if src_identity not in dst["used_by"]:
+                dst["used_by"].append(src_identity)
 
     # Keep used_by lists deterministic regardless of discovery order.
     for e in entries:
         e["used_by"] = sorted(dict.fromkeys(e["used_by"]))
+    return list(entries)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Model enrichment (TASK-011) — the ONE model-driven step (FR-DC-17).
+#
+# The model reads each normalized entry (and, on demand, the bounded file it names)
+# and returns *meaning only*: a one-line ``purpose`` and a ``tags`` list. It is the
+# skill (the agent) that performs ``model_enrich`` by reasoning — there is no Python
+# function for it here, by design. The two functions below are the DETERMINISTIC
+# guardrails around that model step so the division of labor cannot waver:
+#
+#   - ``apply_enrichment`` — the only sanctioned write path post-normalize. It writes
+#     ``purpose`` + ``tags`` and NOTHING else, so a model that "helpfully" returns
+#     structural edits cannot corrupt the deterministic map (FR-DC-17).
+#   - ``assert_tags_in_vocabulary`` — the hard ⊆-vocabulary gate (D5 / §10) that fires
+#     on any out-of-vocab tag the model invents.
+#
+# Edges remain the deterministic ``merge_edges`` closure; the model never sets them.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# D5 vocabulary (REQUIREMENTS §D5) — the 12-tag ``payment_brand`` set, pinned + frozen.
+# This is the SAME table TASK-014 transcribes verbatim into
+# ``core/profiles/payment_brand/vocabulary.payment_brand.yaml``. Until that file is
+# authored (and the build venv gains a YAML parser), this pinned constant is the
+# stub the vocab gate asserts against (TASK-011 model note — "stub-assert and
+# re-check at TASK-021"). It is not invented: it is D5 reproduced, the same frozen
+# contract. TASK-021/046's ``check_vocab_containment.py`` is the file-based gate.
+D5_PAYMENT_BRAND_VOCABULARY = frozenset({
+    "mandate", "brand_rules", "card_brand", "routing", "message_format",
+    "certification", "settlement", "transaction_flow", "error_handling",
+    "interchange_fees", "reporting", "compliance_deadline",
+})
+
+# The subset D5 flags "Code tag? = yes" — the only tags ``code_map_build`` is expected
+# to emit (matches ``adapter.yaml`` ``code_pipeline`` emits). Guidance for the model;
+# the hard gate below is still containment in the *full* vocabulary, per the D5
+# invariant ``tags(code_map) ⊆ vocabulary``.
+CODE_MAP_TAGS = frozenset({
+    "card_brand", "routing", "message_format", "settlement",
+    "transaction_flow", "error_handling",
+})
+
+
+class VocabularyError(ValueError):
+    """Raised when a model-set tag is outside the domain vocabulary (D5 / §10)."""
+
+
+def load_domain_vocabulary(domain: str = "payment_brand") -> frozenset[str]:
+    """Return the domain's canonical tag vocabulary as a frozenset (D5 / §10).
+
+    The canonical source is ``core/profiles/<domain>/vocabulary.<domain>.yaml``
+    (authored in TASK-014). That file is not yet present, so for the MVP's single
+    domain we return the **D5-pinned stub** — the same 12 tags TASK-014 transcribes
+    verbatim. When the YAML lands this loader routes through it; the file-based
+    cross-check lives in TASK-021/046. (TASK-011 stub-assert note.)
+    """
+    if domain == "payment_brand":
+        return D5_PAYMENT_BRAND_VOCABULARY
+    raise KeyError(
+        f"no vocabulary registered for domain {domain!r} "
+        f"(author core/profiles/{domain}/vocabulary.{domain}.yaml)"
+    )
+
+
+def apply_enrichment(entry: dict, purpose: str, tags: Sequence[str]) -> dict:
+    """Write the model's enrichment onto a normalized entry — ``purpose`` + ``tags`` ONLY.
+
+    The deterministic write-guard for the model step (FR-DC-17): the model returns
+    meaning, never structure. This is the only sanctioned mutation of an entry after
+    ``normalize``; it cannot reach ``path/module/interfaces/depends_on/used_by/
+    coverage`` or the reserved fields. Tags are copied into a fresh list so the
+    caller's object cannot alias internal state. Returns the same entry for chaining.
+    """
+    entry["purpose"] = purpose
+    entry["tags"] = list(tags)
+    return entry
+
+
+def assert_tags_in_vocabulary(
+    entries: Sequence[dict], vocabulary: "frozenset[str] | set[str]"
+) -> list[dict]:
+    """Assert every entry's model-set ``tags`` ⊆ ``vocabulary`` (D5 / §10), or raise.
+
+    Deterministic gate over the enriched entries: the hard backstop that keeps the
+    model's free-text tagging inside the pinned vocabulary. On any violation it
+    raises :class:`VocabularyError` naming every offending ``(path, tag)`` pair, so a
+    single bad tag fails the build loudly (FR-DC-09) rather than leaking a junk tag
+    that would silently mis-route a BRD/FRD section. Returns ``entries`` unchanged on
+    success for chaining.
+    """
+    offenders = [
+        (entry.get("path", "?"), tag)
+        for entry in entries
+        for tag in entry.get("tags", [])
+        if tag not in vocabulary
+    ]
+    if offenders:
+        listed = ", ".join(f"{path}:{tag}" for path, tag in offenders)
+        raise VocabularyError(
+            f"{len(offenders)} tag(s) outside the domain vocabulary: {listed}"
+        )
     return list(entries)
 
 
@@ -313,6 +450,12 @@ __all__ = [
     "normalize_entry",
     "normalize",
     "merge_edges",
+    "apply_enrichment",
+    "assert_tags_in_vocabulary",
+    "load_domain_vocabulary",
+    "VocabularyError",
+    "D5_PAYMENT_BRAND_VOCABULARY",
+    "CODE_MAP_TAGS",
     "STRUCTURAL_FIELDS",
     "MODEL_FIELDS",
     "RESERVED_FIELDS",

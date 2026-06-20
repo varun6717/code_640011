@@ -58,9 +58,11 @@ dispatch(repo) -> code_map.json:                      # TECH_SPEC §5.5, revised
           entries += model_fallback(files)             # TASK-010 — model derives structure for a partition
                                                         #   with no extractor; mark_all coverage="coarse";
                                                         #   these files are files_fallback (never dropped)
+  vocab = load_domain_vocabulary(domain)               # core.extractors — D5-pinned set (§10)
   for e in entries:
-      e.purpose, e.tags = model_enrich(e)              # TASK-011 — MODEL owns purpose + tags ONLY
-      assert e.tags ⊆ domain_vocabulary                # TASK-011 — D5 / §10
+      purpose, tags = model_enrich(e)                  # TASK-011 — MODEL owns purpose + tags ONLY
+      apply_enrichment(e, purpose, tags)               # core.extractors — writes ONLY purpose+tags (guard)
+  assert_tags_in_vocabulary(entries, vocab)            # core.extractors — DETERMINISTIC gate; D5 / §10
   edges = merge_edges(entries)                         # core.extractors.merge_edges — DETERMINISTIC closure
   return assemble(entries, edges, coverage_report)     # files_seen = ALL source files; residue = files_fallback;
                                                         #   coverage = files_extracted / files_seen (§5.4 / ADR-002).
@@ -172,6 +174,47 @@ deterministically covered.
   0.67 (an extractor covered the majority), not force-set.
 - A fully non-C / un-onboarded repo — *every* file routes to fallback; `files_extracted = 0` →
   `coverage = 0` → below floor, and the top-level coverage is **force-set** `"coarse"` (whole repo fell back).
+
+### Model enrichment — `purpose` + `tags`, and only those (TASK-011)
+
+After every partition has been normalized (extractor entries + any fallback entries, all in the §3.3
+shape with `purpose`/`tags` seeded empty), the **one model-driven enrichment step** runs over the merged
+entry list. It is the model's *only* contribution to a normal (extractor-covered) map, and it is bounded
+to **meaning**:
+
+- **What the model sets — exactly two fields.** For each entry the model returns a one-line `purpose`
+  (what the file does, in business-legible terms) and a `tags[]` list. It reads the entry's structural
+  fields and may selectively open the file it names (bounded, on demand) to judge purpose/tags — it does
+  **not** re-derive structure. `model_enrich(e)` is performed by *you* (the agent), by reasoning; there is
+  deliberately no Python function for it.
+- **The write-guard.** Write the result back only through `apply_enrichment(e, purpose, tags)`
+  (`core.extractors`). That setter touches `purpose` and `tags` and **nothing else** — it cannot reach
+  `path/module/interfaces/depends_on/used_by/coverage` or the reserved `external_calls`/`exposes`. So even
+  if a model turn "helpfully" proposes an edge or renames a module, that edit has no path into the map: the
+  structural fields stay exactly as the deterministic extractor (or `merge_edges`) produced them
+  (FR-DC-17). The model is in the loop for meaning only — never detection, normalization, edges, or the gate.
+- **`tags ⊆ vocabulary`, asserted in code.** Tags are drawn **only** from the domain vocabulary
+  (D5 / §10), loaded by `load_domain_vocabulary(domain)`. After enrichment, `assert_tags_in_vocabulary(
+  entries, vocab)` is the hard gate: it raises `VocabularyError` naming every offending `(path, tag)` pair,
+  failing the build loudly (FR-DC-09) rather than leaking a junk tag that would silently mis-route a BRD/FRD
+  section. In practice `code_map_build` emits only the six **code tags** D5 flags `Code tag? = yes`
+  (`card_brand, routing, message_format, settlement, transaction_flow, error_handling` — the `CODE_MAP_TAGS`
+  subset, matching `adapter.yaml`'s `code_pipeline` emits); the gate enforces containment in the full
+  vocabulary, so a non-code tag is not *rejected* but an out-of-vocabulary string is. A file the model finds
+  no in-vocabulary tag for keeps `tags: []` (e.g. a shared utility header or the vendor shim) — empty is
+  honest, an invented tag is not.
+
+> **Vocabulary source (TASK-011 stub note).** The canonical vocabulary is
+> `core/profiles/payment_brand/vocabulary.payment_brand.yaml` (authored in TASK-014). Until that file
+> exists, `load_domain_vocabulary` returns the **D5-pinned stub** — the same 12 tags, reproduced from the
+> frozen D5 table, not invented. TASK-021/046 (`check_vocab_containment.py`) re-points the check at the YAML
+> file. The assertion behaviour does not change; only the source of the set moves from constant to file.
+
+**Edges stay deterministic.** `model_enrich` never sets `depends_on`/`used_by`. The closure is the
+deterministic `merge_edges(entries)` step that runs *after* enrichment (it does not depend on `purpose`/
+`tags`), matching each entry's outbound `depends_on` to another entry's identity and back-filling `used_by`.
+This is why the C extractor leaves `used_by` empty (TASK-009) — the merge owns it, not the extractor and
+not the model.
 
 ### Gate (forward reference)
 
