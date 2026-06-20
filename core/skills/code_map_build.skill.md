@@ -59,10 +59,13 @@ dispatch(repo) -> code_map.json:                      # TECH_SPEC §5.5, revised
                                                         #   with no extractor; mark_all coverage="coarse";
                                                         #   these files are files_fallback (never dropped)
   vocab = load_domain_vocabulary(domain)               # core.extractors — D5-pinned set (§10)
+  uncovered = []
   for e in entries:
-      purpose, tags = model_enrich(e)                  # TASK-011 — MODEL owns purpose + tags ONLY
+      purpose, tags, unc = model_enrich(e)             # TASK-011 — MODEL owns purpose+tags; unc = leftover meaning
       apply_enrichment(e, purpose, tags)               # core.extractors — writes ONLY purpose+tags (guard)
+      uncovered += unc                                 # → ledger, NOT the map (ADR-003 / FR-DC-21)
   assert_tags_in_vocabulary(entries, vocab)            # core.extractors — DETERMINISTIC gate; D5 / §10
+  vocab_adequacy(entries, uncovered)                   # TASK-013 — VOCAB_GAP_FLAG (adequacy, §5.4.1); never blocks
   edges = merge_edges(entries)                         # core.extractors.merge_edges — DETERMINISTIC closure
   return assemble(entries, edges, coverage_report)     # files_seen = ALL source files; residue = files_fallback;
                                                         #   coverage = files_extracted / files_seen (§5.4 / ADR-002).
@@ -182,11 +185,14 @@ shape with `purpose`/`tags` seeded empty), the **one model-driven enrichment ste
 entry list. It is the model's *only* contribution to a normal (extractor-covered) map, and it is bounded
 to **meaning**:
 
-- **What the model sets — exactly two fields.** For each entry the model returns a one-line `purpose`
-  (what the file does, in business-legible terms) and a `tags[]` list. It reads the entry's structural
-  fields and may selectively open the file it names (bounded, on demand) to judge purpose/tags — it does
-  **not** re-derive structure. `model_enrich(e)` is performed by *you* (the agent), by reasoning; there is
-  deliberately no Python function for it.
+- **What the model sets — exactly two fields, plus one observation.** For each entry the model returns a
+  one-line `purpose` (what the file does, in business-legible terms) and a `tags[]` list. It reads the
+  entry's structural fields and may selectively open the file it names (bounded, on demand) to judge
+  purpose/tags — it does **not** re-derive structure. `model_enrich(e)` is performed by *you* (the agent),
+  by reasoning; there is deliberately no Python function for it. As a **byproduct of the same pass**, the
+  model also reports `uncovered_concepts[]` — concepts it recognized in the file that **no** vocabulary tag
+  covers (see the vocabulary-adequacy note below). These are the only three things the model produces;
+  `purpose`/`tags` land on the map, `uncovered_concepts` does not (it routes to the ledger).
 - **The write-guard.** Write the result back only through `apply_enrichment(e, purpose, tags)`
   (`core.extractors`). That setter touches `purpose` and `tags` and **nothing else** — it cannot reach
   `path/module/interfaces/depends_on/used_by/coverage` or the reserved `external_calls`/`exposes`. So even
@@ -209,6 +215,32 @@ to **meaning**:
 > exists, `load_domain_vocabulary` returns the **D5-pinned stub** — the same 12 tags, reproduced from the
 > frozen D5 table, not invented. TASK-021/046 (`check_vocab_containment.py`) re-points the check at the YAML
 > file. The assertion behaviour does not change; only the source of the set moves from constant to file.
+
+### Vocabulary adequacy — `uncovered_concepts` (ADR-003 / FR-DC-21)
+
+`assert_tags_in_vocabulary` guards the **containment** direction (no tag escapes the dictionary). The
+**adequacy** direction — *is the dictionary big enough for this corpus?* — is the opposite check, and the
+model cannot raise it by inventing a tag (`tags ⊆ vocabulary` forbids that). Instead it reports what it
+**could not** tag, so an undersized vocabulary surfaces instead of degrading silently:
+
+- **`uncovered_concepts[]` is emitted in the same `model_enrich` pass.** While judging tags for a file, the
+  model also names any concept present in the file that **no** vocabulary tag covers. This is the precise
+  adequacy signal, and it is **independent of how many tags the file got** — which is what makes it catch
+  both shapes of gap:
+  - **fully uncovered** — the file's only concept has no tag → `tags: []` *and* `uncovered_concepts: [X]`;
+  - **partially uncovered** — the file got its primary tag but a *secondary* concept has no tag →
+    `tags: [routing]` *and* `uncovered_concepts: [tokenization]`. A plain empty-`tags` count would miss
+    this second case (the file is non-empty); `uncovered_concepts` does not.
+- **It does not land on the map.** `apply_enrichment(e, purpose, tags)` still writes **only** `purpose`+`tags`
+  to the `code_map` entry (the guard is unchanged). `uncovered_concepts` has no tag by definition — it routes
+  nothing — so it goes to the **ledger** (`decisions.jsonl`/telemetry via the gate, TASK-013), never the map.
+- **The gate aggregates it deterministically.** Across the *net-new* files of a build (the gate's `git_diff`
+  delta), a concept that **recurs** is raised as a `VOCAB_GAP_FLAG` naming the concept + evidence files; a
+  deterministic `untagged_ratio` (count of `tags == []`) runs underneath as a **model-free floor** (catches
+  the fully-uncovered case even if the model's emission is absent). Neither auto-grows the vocabulary — they
+  raise a hand, exactly like `REONBOARD_FLAG`. A human reviews, freezes any amendment (bumps `vocab_sha`),
+  and a **re-tag pass** re-applies the refined vocabulary to the affected files. The flag + aggregation are
+  in-slice (TASK-013); the model *proposal/amendment/re-tag* loop is the deferred half (port-time, FR-DC-21 L2).
 
 **Edges stay deterministic.** `model_enrich` never sets `depends_on`/`used_by`. The closure is the
 deterministic `merge_edges(entries)` step that runs *after* enrichment (it does not depend on `purpose`/

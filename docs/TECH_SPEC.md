@@ -288,10 +288,11 @@ Per run; append-only. Every gate and flag decision: who, when, outcome, rational
 { "ts": "…", "kind": "gate",  "gate": "G1", "outcome": "accept", "actor": "vmunjal", "version": 1 }
 { "ts": "…", "kind": "flag",  "flag_type": "scope_ripple", "area": "settlement/reconciler", "option": "include in scope", "severity": "material", "rationale": "Settlement shares the brand table; in-scope per ops.", "actor": "vmunjal" }
 { "ts": "…", "kind": "reonboard_flag", "language": "c", "coverage": 0.71, "floor": 0.80, "decision": "re-onboard", "actor": "vmunjal" }
-{ "ts": "…", "kind": "vocab_gap_flag", "arm": "code", "untagged_ratio": 0.34, "threshold": 0.20, "decision": "amend-vocab", "actor": "vmunjal" }
+{ "ts": "…", "kind": "vocab_gap_flag", "arm": "code", "concept": "tokenization", "evidence": ["payment/tokenize.c", "payment/vault.c"], "decision": "amend-vocab", "actor": "vmunjal" }
+{ "ts": "…", "kind": "vocab_gap_flag", "arm": "code", "untagged_ratio": 0.34, "threshold": 0.20, "decision": "accept-as-is", "actor": "vmunjal" }
 ```
 
-`vocab_gap_flag` (ADR-003 / FR-DC-21, §5.4.1) records the vocabulary-adequacy detector raising its hand: `untagged_ratio` for the affected `arm` (`code` | `docs`) crossed `adequacy_threshold`, and the operator's disposition (`amend-vocab` | `accept-as-is`). It is the dictionary's twin of `reonboard_flag`; like it, the artifact is **never** auto-modified — a human decides.
+`vocab_gap_flag` (ADR-003 / FR-DC-21, §5.4.1) records the vocabulary-adequacy detector raising its hand. Two shapes, one record kind: the **primary** signal names a recurring `concept` the vocabulary lacks (with `evidence` files) — caught from the model's `uncovered_concepts`, so it covers a file that was *partially* tagged as well as one fully untagged; the **floor** signal records that `untagged_ratio` for an `arm` (`code` | `docs`) crossed `adequacy_threshold` (the deterministic, model-free safety net). Both carry the operator's disposition (`amend-vocab` | `accept-as-is`). It is the dictionary's twin of `reonboard_flag`; like it, the artifact is **never** auto-modified — a human decides.
 
 ### 3.7 `BRD.md` / `FRD.md` — markdown artifacts (FR-BR-*, FR-FR-*)
 
@@ -480,19 +481,29 @@ Unresolved files are written to `code_map.json` with `coverage: coarse` and conf
 
 #### 5.4.1 Vocabulary adequacy detector (L1 — ADR-003, FR-DC-21)
 
-`check_coverage` (above) is *extractor* adequacy — "does the frozen **tool** cover this repo's languages?". `check_vocab_adequacy` is the exact twin for *vocabulary* adequacy — "does the frozen **dictionary** cover this corpus's concepts?". It is **deterministic and model-free** (no model, and it does not even need to load the vocabulary — it counts the empty-`tags` result the enrichment already produced), so it runs in the gate's post-build path beside `check_coverage`:
+`check_coverage` (above) is *extractor* adequacy — "does the frozen **tool** cover this repo's languages?". `check_vocab_adequacy` is the exact twin for *vocabulary* adequacy — "does the frozen **dictionary** cover this corpus's concepts?". It runs in the gate's post-build path beside `check_coverage`, reading two signals (a model byproduct + a deterministic floor):
 
 ```
-check_vocab_adequacy(map, threshold):
+check_vocab_adequacy(entries, uncovered_concepts, threshold):
+  # ── PRIMARY signal — leftover meaning (catches BOTH fully- and partially-uncovered files) ──
+  # uncovered_concepts[] was emitted per file by model_enrich (§5.5) — concepts present in a file
+  # that NO vocabulary tag covers, independent of how many tags the file did get.
+  recurring = concepts in uncovered_concepts appearing in >= MIN_RECUR net-new files   # deterministic aggregate
+  for c in recurring:
+      raise VOCAB_GAP_FLAG(arm="code", concept=c, evidence=files_naming(c))   # names the missing concept
+
+  # ── FLOOR — deterministic, model-free safety net (catches the fully-uncovered case alone) ──
   untagged_ratio_code = count(files where tags == []) / max(1, count(files))
   # doc arm (when the doc manifest exists — §3.2): entries with no topics / total entries
   emit telemetry(vocab_adequacy: {code: untagged_ratio_code, docs: untagged_ratio_docs})   # every run → trend
   if untagged_ratio_code > threshold or untagged_ratio_docs > threshold:
-      raise VOCAB_GAP_FLAG(arm=…, ratio=…, threshold=…)   # the dictionary is systematically too small
-      # NEVER auto-grows the vocabulary — a frozen dictionary raises its hand, exactly like REONBOARD_FLAG.
+      raise VOCAB_GAP_FLAG(arm=…, ratio=…, threshold=…)   # systematic gap, even if model emission was absent
+  # NEVER auto-grows the vocabulary — a frozen dictionary raises its hand, exactly like REONBOARD_FLAG.
 ```
 
-Direction: `untagged_ratio = untagged / total`, so a **high** ratio is the bad one. The threshold (`adequacy_threshold`, §5.2; default `0.20`) is what distinguishes a few legitimately-untaggable files (a utility header, a vendor shim — `tags: []` is *correct*; low ratio, no flag) from a systematic gap (a real second concept the dictionary lacks — high ratio, flag). A `VOCAB_GAP_FLAG` is recorded in `decisions.jsonl` (§3.6) for a human to decide whether to amend the vocabulary; **the run is not blocked** — adequacy is an advisory **runtime flag**, not a build hard-gate (§10 containment remains the hard gate). The model diagnosis of *which* tag to add, and the amendment itself, are the deferred L2 half (FR-DC-21, Phase 5 / port-time); L1 is only the deterministic detector + flag.
+**Why two signals.** A plain empty-`tags` count catches only the *fully*-uncovered file (`tags: []`); it misses the **partially**-uncovered one (the file got its primary tag, e.g. `[routing]`, but a *secondary* concept — `tokenization` — has no tag, so the file is non-empty and the count waves it through). `uncovered_concepts` (the model naming leftover meaning during the same enrichment pass) catches **both**, because it does not depend on the tag count. The deterministic `untagged_ratio` is kept **underneath** as a model-free floor: it still fires on a systematic fully-uncovered gap even if the model's emission is missing/unreliable, and it is the cheap always-on trend line. Direction: `untagged_ratio = untagged / total`, so a **high** ratio is the bad one; `adequacy_threshold` (§5.2; default `0.20`) separates a few legitimately-untaggable files (a utility header, a vendor shim — `tags: []` is *correct*) from a systematic gap.
+
+A `VOCAB_GAP_FLAG` is recorded in `decisions.jsonl` (§3.6) for a human to decide whether to amend the vocabulary; **the run is not blocked** — adequacy is an advisory **runtime flag**, not a build hard-gate (§10 containment remains the hard gate). **L1 (in-slice)** is the `uncovered_concepts` emission + this deterministic aggregation/flag. The model **proposal** that turns a recurring uncovered concept into a well-formed candidate tag (`vocab_gap_assess`), the human-gated **amendment**, the `vocab_sha` bump, and the **re-tag pass** are the deferred **L2** half (FR-DC-21, Phase 5 / port-time).
 
 ### 5.5 Dispatcher + per-language normalization contract (FR-DC-17)
 
@@ -507,9 +518,12 @@ dispatch(repo) -> code_map.json:
   else:
       entries = model_fallback(repo)                  # model derives structure; FR-DC-17 lower-coverage
       mark_all(entries, coverage="coarse"); force_top_level_coverage("coarse")
+  uncovered = []
   for e in entries:
-      e.purpose, e.tags = model_enrich(e)             # MODEL owns purpose + tags ONLY (FR-DC-17)
-      assert e.tags ⊆ domain_vocabulary               # D5 / §10
+      e.purpose, e.tags, unc = model_enrich(e)        # MODEL owns purpose + tags ONLY (FR-DC-17);
+      uncovered += unc                                #   unc = uncovered_concepts → ledger, NOT the map (ADR-003)
+      assert e.tags ⊆ domain_vocabulary               # D5 / §10 (containment)
+  check_vocab_adequacy(entries, uncovered, threshold) # ADR-003 / §5.4.1 — VOCAB_GAP_FLAG (adequacy); never blocks
   edges = merge_edges(entries)                        # DETERMINISTIC: match depends_on ↔ used_by (closure)
   return assemble(entries, edges, coverage_report)
 ```
@@ -518,7 +532,9 @@ dispatch(repo) -> code_map.json:
 
 The **dispatcher is the only place language varies.** Adding a language = "write one more extractor + onboard it"; the core, the schema, and `code_impact` are untouched.
 
-**`purpose`/`tags` separability (ADR-003).** The two model-owned fields have different dependencies: `purpose` is free text and needs **no** vocabulary, while `tags` is gated by `assert tags ⊆ vocabulary`. In a normal run `model_enrich` writes both back-to-back. The vocabulary-onboarding path (FR-DC-20, deferred) exploits the split — it runs a `purpose`-first pass (vocabulary-independent) to help *propose* a new domain's dictionary, then assigns `tags` last against the frozen result. A consequence that matters in-slice: a file whose concept is not in the vocabulary keeps `tags: []` (honest, never invented) — and that empty-`tags` count is exactly the signal the **vocabulary adequacy detector** reads (§5.4.1, FR-DC-21).
+**`purpose`/`tags` separability (ADR-003).** The two model-owned fields have different dependencies: `purpose` is free text and needs **no** vocabulary, while `tags` is gated by `assert tags ⊆ vocabulary`. In a normal run `model_enrich` writes both back-to-back. The vocabulary-onboarding path (FR-DC-20, deferred) exploits the split — it runs a `purpose`-first pass (vocabulary-independent) to help *propose* a new domain's dictionary, then assigns `tags` last against the frozen result.
+
+**`uncovered_concepts` — the adequacy byproduct (ADR-003 / FR-DC-21).** Because the model cannot invent a tag, a concept the vocabulary lacks would otherwise vanish silently. So `model_enrich` returns a **third** value alongside `purpose`/`tags`: `uncovered_concepts[]`, the concepts it recognized in the file that **no** vocabulary tag covers. This is emitted in the same pass (the model already read the file), is **independent of the tag count**, and so catches both a fully-uncovered file (`tags: []`) *and* a partially-uncovered one (`tags: [routing]` but a secondary concept un-nameable). It does **not** land on the `code_map` entry — it routes nothing, so it goes to the ledger (§3.6) and feeds the adequacy detector (§5.4.1), not the map. The map's `tags` therefore stay exactly the in-vocabulary set.
 
 ### 5.6 `code_impact` — coarse / deep (FR-BR-07, FR-BR-12/13, D6b/c)
 
