@@ -60,7 +60,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-014 — Transcribe D5 vocabulary table verbatim into `vocabulary.payment_brand.yaml` (12 tags, emitted-by mapping) · `Sonnet`
 - [x] TASK-015 — Author `brd_profile.payment_brand.yaml`: `must_capture` + `probe_if_missing` per topic per section; foundation every BRD run depends on · `Opus`
 - [x] TASK-016 — Author `frd_profile.payment_brand.yaml`: same shape + `functional_kind` + `traces_to` resolving to real BRD anchors · `Opus`
-- [ ] TASK-017 — `adapter.yaml` pack manifest + `pdf_extract` skill; surface open flag F1 (`mandate` emitter mismatch) to V · `Sonnet`
+- [x] TASK-017 — `adapter.yaml` pack manifest + `pdf_extract` skill; F1 (+3) emit-map drifts reconciled w/ V (see CLAUDE.md) · `Sonnet`
 - [ ] TASK-018 — `article_summarize` skill: emits `brand_rules`, `message_format`, `interchange_fees`, `reporting` (reconcile F1) · `Sonnet`
 - [ ] TASK-019 — `change_type_assess` skill: emits `mandate`, `card_brand`, `routing`, `certification`, `compliance_deadline` (reconcile F1) · `Sonnet`
 - [ ] TASK-020 — Two generic source-type-keyed connectors: `clone.py` (Bitbucket) + `ingest_sharepoint.py` (or direct-file PDF) · `Sonnet`
@@ -334,8 +334,8 @@ Order: fixtures → env/tooling → extractor onboarding → domain seam. The ex
 - **Model:** Sonnet — skill markdown authoring; emit tags are pinned by §6.6.3 and D5
 - **Reads:** `docs/TECH_SPEC.md` §6.6.3 (`article_summarize.emits`); `docs/REQUIREMENTS.md` D5.
 - **Creates / edits:** `core/profiles/payment_brand/adapter/article_summarize.skill.md`.
-- **Do:** Author the doc-summarization skill emitting `[brand_rules, message_format, interchange_fees, reporting]` (per §6.6.3; reconcile against F1 outcome).
-- **Acceptance:** `emits` ⊆ vocabulary and matches the (F1-reconciled) `adapter.yaml` map.
+- **Do:** Author the doc-summarization skill emitting `[brand_rules, message_format, interchange_fees, reporting, mandate, transaction_flow]` (the F1/emit-map-reconciled set from TASK-017 — `+mandate, +transaction_flow` over §6.6.3's original example; see CLAUDE.md "Resolved flag").
+- **Acceptance:** `emits` ⊆ vocabulary and matches the (reconciled) `adapter.yaml` map.
 - **Fixture / proof:** §10.5 (TASK-021); TASK-003 PDF.
 - **Satisfies:** FR-DC-03, FR-DC-09.
 

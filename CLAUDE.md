@@ -61,9 +61,13 @@ Durable state lives in **files and git**, never in the conversation. Never rely 
 
 ---
 
-## Known open flag (do not silently resolve)
+## Resolved flag (F1 + 3, reconciled at TASK-017, V-approved)
 
-**F1 — `mandate` emitter mismatch.** `docs/REQUIREMENTS.md` D5 lists `mandate` as emitted by **both** `change_type_assess` and `article_summarize`, but the `docs/TECH_SPEC.md` §6.6.3 `adapter.yaml` example emits it only from `change_type_assess`. Build check §10.5 (no-drift) will fire on this. When you reach TASK-017/021, **surface it to V and reconcile — do not pick one yourself.**
+**F1 (and three more) — adapter emit-map vs vocabulary drift.** Authoring `adapter.yaml` (TASK-017) surfaced **four** per-tag drifts between §6.6.3's adapter instance and D5/`vocabulary.payment_brand.yaml`'s `emitted_by` column (only `mandate`/F1 was documented). Reconciled holistically against reality, V-approved:
+- **Class 1 (vocabulary right → fixed `adapter.yaml`):** `mandate` (F1) and `transaction_flow` — `article_summarize.emits` now includes both (§6.6.3 had omitted them).
+- **Class 2 (code skill right → fixed vocabulary, r2):** `card_brand`, `message_format` — `emitted_by` gained `code_map_build` (both are `code_tag: true` and in `CODE_MAP_TAGS`; the column had dropped it for these two). `vocab_sha` bumped `d5frozen → d5frozen-r2`.
+
+All 12 per-tag mappings now match; §10.5 verified green at TASK-017 (re-gated at TASK-021). **Port note:** the D5 table in `docs/REQUIREMENTS.md` still carries the same `card_brand`/`message_format` gap — reconcile D5 itself at port time.
 
 ---
 

@@ -12,9 +12,22 @@
 #   §10.1 — loads the tag set V; asserts profile topics ⊆ V and code_map tags ⊆ V.
 #   §10.5 — `emitted_by` here MUST equal `adapter.yaml`'s emit map (no drift).
 #
+# ── r2 amendment (TASK-017 — emit-map reconciliation; V-approved) ─────────────────────
+# The §10.5 no-drift check compares this `emitted_by` column, per tag, to adapter.yaml's
+# emit-map. Authoring adapter.yaml surfaced FOUR drifts vs §6.6.3 (only mandate/F1 was
+# documented). Two were vocab transcription gaps fixed HERE; two were adapter gaps fixed
+# in adapter.yaml. The TAG SET is unchanged — only `emitted_by` metadata moved:
+#   • card_brand, message_format — D5 flags both `code_tag: true` and `code_map_build`
+#     (CODE_MAP_TAGS) genuinely emits them, but this column dropped `code_map_build` for
+#     these two (it lists it for the other four code tags). Added below. [Class 2]
+#   • mandate, transaction_flow — this column was already correct (both list a doc skill
+#     the §6.6.3 adapter omitted); adapter.yaml was aligned to THIS instead. [Class 1]
+# NOTE for the port: the D5 table in REQUIREMENTS.md carries the same card_brand/
+# message_format gap — reconcile D5 itself there. `vocab_sha` bumped d5frozen → d5frozen-r2.
+#
 # Reserved version header (ADR-003, additive — matches onboarding_manifest.yaml).
 domain: payment_brand
-vocab_sha: d5frozen
+vocab_sha: d5frozen-r2               # r2: +code_map_build on card_brand & message_format (TASK-017)
 schema_version: 1
 
 # Each tag carries D5's four columns verbatim: definition, emitted_by (adapter skill),
@@ -22,9 +35,9 @@ schema_version: 1
 tags:
   mandate:
     definition: "The originating brand mandate, its ID and compliance deadline"
-    # OPEN FLAG F1 (do NOT resolve here): D5 lists BOTH skills; TECH_SPEC §6.6.3 adapter.yaml
-    # emits `mandate` only from change_type_assess. Transcribed verbatim per D5 so the §10.5
-    # no-drift check (TASK-021) surfaces the mismatch. Reconcile with V at TASK-017/021.
+    # F1 RESOLVED (TASK-017, V-approved, Class 1): D5/this column is authoritative — mandate
+    # is emitted by BOTH skills. §6.6.3's adapter omitted article_summarize; adapter.yaml was
+    # aligned to THIS (article_summarize now emits mandate). No vocab change for mandate.
     emitted_by: [change_type_assess, article_summarize]
     consumed_by: ["BRD business_context"]
     code_tag: false
@@ -37,7 +50,9 @@ tags:
 
   card_brand:
     definition: "Which card brand(s) the work concerns"
-    emitted_by: [change_type_assess]
+    # r2 (TASK-017, Class 2): +code_map_build — code_tag:true and code_map_build (CODE_MAP_TAGS)
+    # emits it; this column had dropped it. Now matches adapter.yaml code_pipeline.
+    emitted_by: [change_type_assess, code_map_build]
     consumed_by: ["BRD scope", "code routing"]
     code_tag: true
 
@@ -49,7 +64,9 @@ tags:
 
   message_format:
     definition: "Message/wire formats and field-level changes"
-    emitted_by: [article_summarize]
+    # r2 (TASK-017, Class 2): +code_map_build — code_tag:true and code_map_build (CODE_MAP_TAGS)
+    # emits it; this column had dropped it. Now matches adapter.yaml code_pipeline.
+    emitted_by: [article_summarize, code_map_build]
     consumed_by: ["FRD data_contracts"]
     code_tag: true
 
