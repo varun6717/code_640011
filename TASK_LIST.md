@@ -63,7 +63,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-017 — `adapter.yaml` pack manifest + `pdf_extract` skill; F1 (+3) emit-map drifts reconciled w/ V (see CLAUDE.md) · `Sonnet`
 - [x] TASK-018 — `article_summarize` skill: emits `brand_rules`, `message_format`, `interchange_fees`, `reporting` (reconcile F1) · `Sonnet`
 - [x] TASK-019 — `change_type_assess` skill: emits `mandate`, `card_brand`, `routing`, `certification`, `compliance_deadline` (reconcile F1) · `Sonnet`
-- [ ] TASK-020 — Two generic source-type-keyed connectors: `clone.py` (Bitbucket) + `ingest_sharepoint.py` (or direct-file PDF) · `Sonnet`
+- [x] TASK-020 — Two generic source-type-keyed connectors: `clone.py` (Bitbucket) + `ingest_file.py` (direct-file PDF; SharePoint deferred P5) · `Sonnet`
 - [ ] TASK-021 — Verify §10.3/10.4/10.5 domain-seam build checks all green; F1 reconciled before proceeding · `Sonnet`
 
 **Phase 2 — Core scaffold & runtime-tool seam**
