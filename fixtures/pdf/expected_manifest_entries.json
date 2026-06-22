@@ -1,7 +1,7 @@
 [
   {
-    "path": "context_set/pdf/mastercard_mandate_part1_2026.md",
-    "source": "pdf",
+    "path": "context_set/sharepoint/mastercard_mandate_part1_2026.md",
+    "source": "sharepoint",
     "url": "fixtures/pdf/mastercard_mandate_part1_2026.pdf",
     "adapter": "article_summarize",
     "change_type": "new",
@@ -9,8 +9,8 @@
     "descriptor": "Mastercard brand mandate MCS-2026-R3 Part 1 of 2; mandate overview, MDES token brand rules (BR-01–BR-05), and MAC Level 2 certification gates; compliance deadline 2026-09-30"
   },
   {
-    "path": "context_set/pdf/mastercard_mandate_part2_2026.md",
-    "source": "pdf",
+    "path": "context_set/sharepoint/mastercard_mandate_part2_2026.md",
+    "source": "sharepoint",
     "url": "fixtures/pdf/mastercard_mandate_part2_2026.pdf",
     "adapter": "article_summarize",
     "change_type": "new",

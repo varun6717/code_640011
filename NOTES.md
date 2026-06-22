@@ -1,30 +1,34 @@
-# Working notes — open flags for V
+# Working notes
 
-## TASK-034 surfaced two fixture/contract drifts (2026-06-22) — awaiting V decision
+## TASK-034 flags — RESOLVED 2026-06-22 (V-approved)
 
-Both were found running the doc pipeline over the PDF fixtures. The produced `index.json` entries
-match `fixtures/pdf/expected_manifest_entries.json` exactly on content (topics, change_type,
-descriptor, adapter), so TASK-034 acceptance is met — but two upstream inconsistencies should be
-reconciled before the spine relies on them. Surfacing, not silently picking (cite-or-flag; F1 pattern).
+- **Flag A — `adapter` field (RESOLVED).** `change_type_assess.skill.md` no longer overwrites
+  `adapter`; it stays `article_summarize` per §3.2 (the field records the *summarizing* adapter that
+  authored the `descriptor`, not the last skill to touch the entry).
+- **Flag B — PDF source label (RESOLVED).** Oracle provenance label reconciled `"pdf"` → `"sharepoint"`
+  to match locked `UI_INPUT.example.yaml` + `brd_profile` routing sources. Run workspace + oracle
+  realigned; selective-read routing verified to select doc sections.
 
-### Flag A — `adapter` field: skill says one thing, spec + oracle say another
-- `change_type_assess.skill.md` (TASK-019) instructs: *"set `adapter: change_type_assess` to record
-  the last skill that touched the entry."*
-- BUT `docs/TECH_SPEC.md` section 3.2's normative example AND the signed-off oracle both pin
-  `adapter: article_summarize` on an entry that already carries a `change_type` and change_type_assess
-  topics (e.g. `compliance_deadline`). So 3.2 treats `adapter` as *the summarizing adapter that
-  authored the entry's descriptor*, not *last skill touched*.
-- Recommendation: `change_type_assess` should NOT overwrite `adapter` — leave it `article_summarize`
-  (matches 3.2 + oracle). One-line fix to the skill's Output/Rules. V to approve.
+## Open design question (from Flag B) — keeping provenance labels aligned, and non-PDF inputs
 
-### Flag B — PDF source label: oracle "pdf" vs locked UI_INPUT "sharepoint"
-- Oracle (`expected_manifest_entries.json`) labels the PDF source "pdf" (path `context_set/pdf/...`).
-- Locked `fixtures/UI_INPUT.example.yaml` (TASK-002) labels that same PDF `source: sharepoint`.
-- `brd_profile.payment_brand.yaml` routes doc sections off `sources: [confluence, sharepoint]`.
-- Consequence (verified): selective-read predicate `source in section.sources AND topics intersect
-  section.topics` selects NOTHING under "pdf", but routes correctly into 4 doc sections under
-  "sharepoint".
-- Recommendation: reconcile the oracle's provenance label to "sharepoint" (the locked config value)
-  so the grading fixture and a real wired run agree and routing works. V to approve.
-  (TASK-034 run workspace currently mirrors the oracle's "pdf" label verbatim for a clean content
-  diff; the routing demo shows both labels.)
+Flag B exposed that three axes are distinct and must stay aligned:
+
+1. **source `type`** (`file | bitbucket | confluence | sharepoint`) — *how to ingest*; selects the
+   connector (`ingest_<type>.py`). Covered by build check §10.4 (every configured type has a connector).
+2. **source provenance label** (`source: sharepoint`) — *the logical bucket* entries are tagged with and
+   that profiles route off (`section.sources`). **No build check guards this today** — a run can
+   configure a `source:` label no profile section lists, and those entries route nowhere (silent).
+3. **document format** (PDF / DOCX / HTML) — *how to extract structure*; owned by the docs_pipeline
+   step-1 extraction skill (`pdf_extract`). Orthogonal to (1) and (2).
+
+**Proposed alignment mechanism (P4/P5 build check — not built yet):** extend the domain-seam checks
+with a *provenance-label containment* check, the source-label analogue of §10.1 topic containment:
+assert every `section.sources[]` value across `brd_profile`/`frd_profile` is a recognized label, and
+warn when a run's `UI_INPUT.sources[].source` is a label no section routes off ("ingested but
+unroutable"). This makes Flag-B-style drift a loud build failure instead of a silent routing miss.
+
+**On non-PDF inputs from SharePoint:** provenance (`sharepoint`) is independent of format. A `.docx`
+from SharePoint keeps the same `source: sharepoint` label and routes identically — only docs_pipeline
+**step 1** changes: generalize `pdf_extract` into a format-dispatching `doc_extract` (or add a sibling
+extraction skill), leaving `article_summarize` / `change_type_assess` untouched. Same "write one more
+extractor" seam pattern as the connectors. (Forward-compat note; deferred — see §11.)

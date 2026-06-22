@@ -1,4 +1,4 @@
-<!-- provenance: source=pdf · url=fixtures/pdf/mastercard_mandate_part1_2026.pdf -->
+<!-- provenance: source=sharepoint · url=fixtures/pdf/mastercard_mandate_part1_2026.pdf -->
 <!-- pipeline: pdf_extract (structure) → article_summarize (summary + topics) → change_type_assess (change_type + topics) -->
 
 # Article Summary (article_summarize)

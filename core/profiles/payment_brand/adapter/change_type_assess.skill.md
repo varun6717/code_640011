@@ -80,7 +80,9 @@ file or a new entry:
 1. set **`change_type`** to your classification of the document;
 2. **add** the subset of your five tags the document earns to the entry's **`topics`** (union with the
    topics `article_summarize` already set — you extend, you do not overwrite);
-3. set **`adapter: change_type_assess`** to record the last skill that touched the entry.
+3. **leave `adapter` unchanged** (it stays `article_summarize`) — per §3.2 the `adapter` field records
+   the *summarizing* adapter that authored the entry's `descriptor`, **not** the last skill to touch it.
+   You add `change_type` + your topics; you do **not** overwrite `adapter`.
 
 The final `index.json` is assembled deterministically by `merge_manifest.py` (§3.2).
 
@@ -88,7 +90,7 @@ The final `index.json` is assembled deterministically by `merge_manifest.py` (§
 context_set/
   confluence/
     discover_mandate.md             # structural (pdf_extract) + summary (article_summarize)
-  index.json                        # entry now: {change_type: "new", topics: ["mandate","compliance_deadline", ...], adapter: change_type_assess, ...}
+  index.json                        # entry now: {change_type: "new", topics: ["mandate","compliance_deadline", ...], adapter: article_summarize, ...}
 ```
 
 ## Rules
