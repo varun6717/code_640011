@@ -58,3 +58,21 @@ skip-if-matching is a **port-time** behavior (real git repo + SHA). Recommend: a
 
 Neither blocks TASK-036: code_map.json was produced, matches the oracle (0 per-file diffs; coverage 0.82),
 and the gate/containment/adequacy checks pass live.
+
+## TASK-037 — brd_author merge + discovery (foundation)
+
+Created `core/skills/brd_author.skill.md` covering this task's portion: generic-engine framing
+(FR-BR-01), the inline D2 baseline skeleton (no topics/must_capture), the deterministic baseline+profile
+merge (by `id`: deep-merge / net-new insert by `position` / raise-not-lower `required` / exec summary
+pinned + drafted last), and the discovery framing (load UI_INPUT + manifest → 2–3 questions → coarse
+code pass map-only → then authoring) per FR-BR-02.
+
+The per-section authoring loop, grounding/cite-or-flag, and revisit/shared-memory are present as named
+stub sections pointing forward to **TASK-038** (selective routing §3.2 + coverage footer §3.7) and
+**TASK-039** (FR-BR-05/06). The code-impact section carries a condensed pointer (deep pass + flag loop
+land with TASK-041). This keeps the file a coherent, clean skill at every incremental step.
+
+**Proof:** `fixtures/brd_author/expected_section_plan.md` — the deterministic 10-row ordered plan from
+merging the payment_brand profile (TASK-015) over the baseline. `code_impact` lands at #6 (after
+`requirements`, before `success_metrics`); `executive_summary` pinned to #10. Mirrored as a worked table
+in the skill itself.
