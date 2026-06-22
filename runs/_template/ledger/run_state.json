@@ -1,0 +1,18 @@
+{
+  "run_id": "__template__",
+  "current_stage": "ingest",
+  "stages": {
+    "ingest": {
+      "status": "pending"
+    },
+    "code_map": {
+      "status": "pending"
+    },
+    "brd_authoring": {
+      "status": "pending"
+    },
+    "frd_authoring": {
+      "status": "pending"
+    }
+  }
+}
