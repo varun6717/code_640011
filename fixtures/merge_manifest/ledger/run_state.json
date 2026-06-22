@@ -1,0 +1,5 @@
+{
+  "run_id": "r-2026-06-22-001",
+  "current_stage": "ingest",
+  "stages": { "ingest": { "status": "done" } }
+}

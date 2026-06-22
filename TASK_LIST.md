@@ -68,7 +68,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 
 **Phase 2 — Core scaffold & runtime-tool seam**
 - [x] TASK-022 — Run-workspace template under `runs/_template/` + JSON-schema validators for 3 ledger files · `Sonnet`
-- [ ] TASK-023 — `merge_manifest.py`: deterministic fan-in of per-source slices → `index.json`; failed sources marked, never dropped · `Sonnet`
+- [x] TASK-023 — `merge_manifest.py`: deterministic fan-in of per-source slices → `index.json`; failed sources marked, never dropped · `Sonnet`
 - [ ] TASK-024 — `hydrate.py`: `git clone` + checkout `registry_sha` + selective copy of `core/`+`profiles/`+`overlays/` into run scaffold · `Sonnet`
 - [ ] TASK-025 — Transcribe D9 block into `overlay_manifest.yaml`: 8 roles, 3 prompt files, per-tool launch · `Sonnet`
 - [ ] TASK-026 — One canonical `instruction_file.template.md`; generation emits `CLAUDE.md` or `copilot-instructions.md` by `runtime_tool` · `Sonnet`

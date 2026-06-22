@@ -1,0 +1,6 @@
+{
+  "source": "sharepoint",
+  "status": "failed",
+  "files": [],
+  "reason": "connector auth seam returned 403; operator to retry-or-proceed (D8c)"
+}
