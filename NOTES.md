@@ -130,3 +130,23 @@ schema + output contract + handoff are forward stubs for **TASK-041**.
 {routing, settlement}: areas rank routing (7 tag hits, required) > settlement (5 hits, optional);
 non-matching modules excluded; the routing↔settlement ripple is explicitly NOT asserted (deep-pass
 flag, TASK-041). No `repo/` source read.
+
+## TASK-041 — code_impact deep pass + required Flags
+
+Filled the deep-mode stub + added Output contract + Handoff + Boundaries in
+`core/skills/code_impact_assess.skill.md`, completing the skill:
+- **Deep:** selective-read the **flagged slice only** from `repo/`, trace the real `depends_on`/`used_by`
+  closure (source confirms/extends the map edges; within-repo only, FR-DC-13), assess precise change.
+- **Flags every run (FR-BR-12, D6b):** yaml schema `type / area / finding / implication / options /
+  recommended_option / severity / requirement_ref`; `flags: []` + "no flags" when none. `severity`
+  (material|advisory, D6c) and `recommended_option` are **recommendations** — never a scope decision.
+- **Handoff:** returns summary + flags to brd_author; never writes BRD / edits repo / decides scope.
+
+**Proof:** `fixtures/code_impact/expected_deep_flags.md` — the routing→settlement ripple, grounded in
+real source: `brand_router.c` `#include "reconciler.h"` + `reconcile_txn()` on the settle path
+(confirmed live in `repo/`), matching map edge `routing/brand_router → settlement/reconciler`. Yields one
+`scope_ripple` flag (severity material, recommended); reads only the flagged slice; emitted-every-run
+contract noted (clean req → `flags: []`).
+
+**code_impact skill now complete** (TASK-040 coarse + TASK-041 deep). brd_author's consumption of these
+flags = the human-mediated flag loop in **TASK-042**.

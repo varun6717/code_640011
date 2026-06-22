@@ -55,14 +55,68 @@ deep pass's starting scope.
 
 ### Deep (at the code-impact section, for flagged areas only)
 
-*(Built in TASK-041 — selective-reads real code from `repo/` for the flagged slice only, traces the
-real dependency closure via `depends_on`/`used_by`, assesses precise change, and emits the **required
-Flags** section every run per the §3.6 / D6b schema; recommends `severity`, never decides scope.)*
+**Input:** the now-sharper requirement + the coarse pass's candidate areas (the flagged slice).
+
+**Procedure:**
+1. **Selective-read the flagged slice only.** Read the actual code for the candidate areas from `repo/`
+   with native file tools (read/grep). Read **only** those areas — never the whole repo. Use the map's
+   `path`s to go straight to the files; pull a neighbouring file only when the closure (step 2) points
+   at it.
+2. **Trace the real dependency closure.** From the real code (not just the map edges), follow
+   `depends_on` (callees) and `used_by` (callers) outward until the affected surface is closed. The map
+   seeds the closure; the source confirms and extends it — an edge the map missed but the code shows is
+   part of the closure. Closure is **within-repo only** (MVP single-repo, FR-DC-13).
+3. **Assess precise change per area.** For each affected area: the affected files/functions, the nature
+   of the change, downstream ripple (who else is touched via the closure), and risk/complexity.
+
+This is where divergence **Flags** come from: having read the real code, compare it against what the
+requirement assumed and emit a flag for each deviation (see Output contract).
+
+## Output contract — return BOTH parts (deep pass)
+
+Return a concise result to the caller; the heavy reading stays in your window.
+
+### 1. Impact summary
+
+Affected areas; nature of change per area; ripple (downstream dependencies from the closure);
+risk/complexity. **Business-framed** for the BRD (impacted systems / scale / risk). The file/function
+detail you read is carried **forward to the FRD**, not stated in the BRD code-impact section.
+
+### 2. Flags — REQUIRED every run (FR-BR-12, D6b)
+
+After assessing, compare the real code against the requirement's assumptions and emit a flag for **each**
+deviation. This section is emitted **every run** so deviations are actively checked, not noticed by
+chance. If there are none, emit `flags: []` and state **"no flags"** explicitly.
+
+```yaml
+flags:
+  - type: scope_ripple            # scope_ripple | complexity | constraint | infeasible
+    area: settlement/reconciler   # the affected area (module/path)
+    finding: "Brand routing shares the brand-rule table with settlement reconciliation"
+    implication: "Adding a brand also changes settlement, not just routing"
+    options: [include in scope, phase separately, adjust requirement, accept risk]
+    recommended_option: "include in scope"   # a recommendation — NOT a decision
+    severity: material            # material | advisory (recommended; D6c — see below)
+    requirement_ref: "code_impact.routing"   # the requirement/topic this flag traces to
+```
+
+**`severity` is a recommendation, not a decision.** Recommend `material` when the deviation appears to
+change the impacted code surface, change a `must_capture` the deep pass relied on, or move a
+Scope/Out-of-scope boundary (D6c); otherwise recommend `advisory`. The operator — via `brd_author`'s
+human-mediated flag loop — decides; you only recommend.
+
+## Handoff
+
+Return the impact summary + flags to the calling agent (`brd_author`). **You do not decide scope** — the
+caller surfaces flags to the operator, who decides; a material decision may trigger a re-run scoped to
+the changed surface only. You do not write `BRD.md`, edit `repo/`, or push anything.
 
 ## Boundaries
 
 - **Coarse mode never reads source files** — the map (`code_map.json`) only.
 - Coarse output is **candidate areas, not Flags** — divergence flags are a deep-pass product.
-- Does not change scope, edit the BRD, or modify `repo/`.
-- *(Deep-mode boundaries — read only the flagged slice, never skip the Flags section — land with
-  TASK-041.)*
+- **Deep mode reads only the flagged slice** — not the whole repo.
+- **Never skip the Flags section** — it is part of the contract, emitted every run (`flags: []` when none).
+- Recommends `severity`; **never decides scope**. Does not edit the BRD or modify `repo/`.
+- Closure is **within-repo only** (single-repo MVP, FR-DC-13); cross-repo (`external_calls`/`exposes`) is
+  deferred.
