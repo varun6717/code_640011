@@ -95,3 +95,23 @@ Citation form + cite-or-flag (FR-BR-06) and revisit/shared-memory (FR-BR-05) rem
 payment_brand profile. Shows §1 loads only P1 (not P2, though both are sharepoint) — routing is the
 source∩topic intersection, not source alone; skeleton sections load nothing; `confluence` matches zero
 this run (no confluence files) without error.
+
+## TASK-039 — brd_author grounding (cite-or-flag) + revisit/shared-memory
+
+Filled the last two stubs in `core/skills/brd_author.skill.md`, completing the skill:
+- **Grounding (FR-BR-06):** inline citation tiers `[src: <provenance>]` / `[frame]` / `[operator]`
+  matching the step-(c) hierarchy; cite-or-flag absolute — ungrounded `must_capture` → `[TBD —
+  unsourced]` + coverage `open`, never invented. Citation tiers align with the footer's
+  source/frame/operator values.
+- **Revisiting & shared memory (FR-BR-05):** loop back to revise earlier sections (draft is mutable, not
+  append-only); never re-ask an answered question (session + accumulating BRD.md carry answers; check
+  draft before probing); mid-stage reset persists facts to the draft first, then resume reloads
+  UI_INPUT + manifest + BRD.md (§3.5 / §16 authoring row).
+Also cleaned a stray TASK-041 build-process reference in the code-impact pointer.
+
+**Proof:** `fixtures/brd_author/expected_grounding.md` — a drafted `business_context` where `mandate` is
+`[src: …]`-grounded and `brand_rules` is unsourced → `[TBD — unsourced]`; footer
+`{mandate: source, brand_rules: open}` agrees with the inline tags.
+
+**brd_author skill now complete** across TASK-037/038/039 (merge + discovery → per-section loop →
+grounding + revisit). Remaining brd_author addition is the human-mediated flag loop (TASK-042).

@@ -222,23 +222,50 @@ accumulating draft keeps earlier sections in view for the rest of the loop.
 When every section has been drafted (executive summary last) and each required section's `must_capture`
 items are satisfied or explicitly `open`/`[TBD]`, hand off to `brd_validator` (G1).
 
-## Grounding & citation
+## Grounding & citation — cite-or-flag (FR-BR-06)
 
-*(Built in TASK-039 — every substantive claim cited inline `[src: …]` / `[frame]` / `[operator]` or
-marked `[TBD — unsourced]`; never invented — FR-BR-06.)*
+Every **substantive claim** in `BRD.md` is grounded and **cited inline**, matching the tier it came
+from in the step-(c) information hierarchy:
 
-## Revisiting & shared memory
+- **`[src: <provenance>]`** — grounded in a `context_set/` file. Use the manifest provenance/path, e.g.
+  `[src: sharepoint/mastercard_mandate_part1_2026.md]`. This is the highest authority; prefer it.
+- **`[frame]`** — grounded in the `UI_INPUT` requirement frame (intent / scope / stakeholders / dates).
+- **`[operator]`** — grounded in an explicit operator answer to a probe.
 
-*(Built in TASK-039 — loop back to revise earlier sections; never re-ask an answered question; on a
-mid-stage reset, persist gathered facts in the draft first — FR-BR-05.)*
+These citation tiers are the same three values a topic takes in the section coverage footer
+(`source` / `frame` / `operator`), so the footer and the inline citations agree.
+
+**Cite-or-flag is absolute.** If a `must_capture` (or any substantive claim) cannot be grounded in a
+source, the frame, or an operator answer, mark it **`[TBD — unsourced]`** and set the topic's coverage
+to `open`. **Never invent** a value to fill a gap — surfacing the gap is the correct, required outcome;
+a fabricated citation or a plausible-but-ungrounded fact is a defect. Non-substantive connective prose
+(structure, transitions) needs no citation; any business fact, number, name, date, rule, or scope
+statement does.
+
+## Revisiting & shared memory (FR-BR-05)
+
+Sections are **not independent**, and answers are **never re-asked**.
+
+- **Revisiting.** If a later section surfaces a change to an earlier one (e.g. a requirement narrows
+  scope, a probe answer contradicts an earlier draft), **loop back and revise** the earlier section —
+  update its prose, citations, and coverage footer. The accumulating `BRD.md` is the working draft, not
+  an append-only log; later insight may rewrite earlier sections.
+- **Shared memory — never re-ask.** Anything already answered (by the operator, or established from a
+  source/frame) is carried forward by the live session + the incrementally-written `BRD.md`; do not ask
+  it again. Before probing a gap (loop step d), check whether the draft or an earlier answer already
+  supplies it. Re-asking an answered question is a defect.
+- **Mid-stage reset.** If the session is reset mid-authoring, **persist gathered facts to the `BRD.md`
+  draft first** so a re-entered session reloads `UI_INPUT` + manifest + the existing `BRD.md` and
+  continues from there (the resume contract, §3.5 / authoring row of §16) without re-interrogating the
+  operator.
 
 ## Code-impact section (delegates to `code_impact`)
 
-*(Deep pass + human-mediated flag loop detailed alongside TASK-041 / FR-BR-08.)* When you reach the
-`code_impact` section (profile section routed to `source=bitbucket`), delegate to the `code_impact`
-subagent and draft the section **business-framed** (impacted systems / scale / risk — no file/function
-detail; that is carried to the FRD). Do **not** auto-apply scope changes from returned flags — surface,
-wait, apply (operator-decided).
+When you reach the `code_impact` section (profile section routed to `source=bitbucket`), delegate to the
+`code_impact` subagent and draft the section **business-framed** (impacted systems / scale / risk — no
+file/function detail; that is carried to the FRD). Do **not** auto-apply scope changes from returned
+flags — surface, wait, apply (operator-decided). *(The deep pass + the full human-mediated flag loop —
+FR-BR-08 — are detailed in `code_impact_assess.skill.md` and the flag-loop section added later.)*
 
 ---
 
