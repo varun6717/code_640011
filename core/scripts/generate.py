@@ -63,6 +63,7 @@ from pathlib import Path
 # Sibling deterministic units live in this same dir; running as a script puts it on sys.path.
 import hydrate
 import ledger
+import telemetry
 from generate_instruction import render_instruction_file
 
 # Overlay files that are authoring-time/port-time docs, NOT runtime workspace artifacts:
@@ -121,24 +122,6 @@ def _place_overlay(dest: Path, runtime_tool: str) -> list[str]:
     shutil.rmtree(dest / "overlays", ignore_errors=True)
     placed.sort()
     return placed
-
-
-def _run_started_event(run_id: str, domain: str, tool: str, path: str, registry_sha: str, ts: str) -> dict:
-    """The §8.1 ``run_started`` envelope+payload. Validated against the telemetry schema
-    before it is written, so Generate fails loud rather than seeding a malformed ledger."""
-    event = {
-        "ts": ts,
-        "run_id": run_id,
-        "domain": domain,
-        "tool": tool,
-        "event": "run_started",
-        "path": path,             # §8.1 run_started payload: where the run was scaffolded
-        "registry_sha": registry_sha,
-    }
-    errs = ledger.validate_record(event, ledger.load_schema("telemetry"))
-    if errs:
-        raise ValueError(f"run_started event fails telemetry schema (defect): {errs}")
-    return event
 
 
 def _g0_checklist(descriptor: dict) -> str:
@@ -233,9 +216,12 @@ def generate(
         (dest / name).mkdir(parents=True, exist_ok=True)
 
     # 7) Record the run_started telemetry event (the only state Generate writes to the stream).
-    event = _run_started_event(run_id, domain, runtime_tool, str(dest), registry_sha, ts or _now_iso())
-    with (dest / "ledger" / "telemetry.jsonl").open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+    #    Via telemetry.emit (TASK-032) — validated against §8.1 before it lands.
+    event = telemetry.emit(
+        dest / "ledger", "run_started",
+        run_id=run_id, domain=domain, tool=runtime_tool,
+        path=str(dest), registry_sha=registry_sha, ts=ts or _now_iso(),
+    )
 
     descriptor = {
         "run_id": run_id,

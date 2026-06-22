@@ -77,7 +77,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-029 — Copilot overlay: parity twin of TASK-027 in native Copilot syntax (frontmatter + location differ) · `Sonnet`
 - [x] TASK-030 — Copilot overlay: parity twin of TASK-028 with `agent_mode` launch + `Ctrl+N` gesture · `Sonnet`
 - [x] TASK-031 — `generate.py` scaffolder: deterministic Generate → run workspace + instruction file + G0 inspection checkpoint · `Opus`
-- [ ] TASK-032 — `telemetry.py`: `emit()` + `decisions.jsonl` writer + `run_state.json` updater covering all §8.1 events · `Sonnet`
+- [x] TASK-032 — `telemetry.py`: `emit()` + `decisions.jsonl` writer + `run_state.json` updater covering all §8.1 events · `Sonnet`
 
 **Phase 3 — Framework build: the spine**
 - [ ] TASK-033 — `source_processor` skill: fan-out worker per source; failure-isolated; reads `adapter.yaml` for run order; no domain knowledge · `Opus`

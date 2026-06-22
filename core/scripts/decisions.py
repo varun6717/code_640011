@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 """`decisions.jsonl` writers — the gate + flag audit ledger (§3.6, NFR-03).
 
-Append-only, one JSON object per line. This module owns the two flag writers the
-gate raises in its post-build path (§5.3):
+Append-only, one JSON object per line. Four record `kind`s, all here so §3.6 lives
+in one place (the unified ledger-writing surface re-exports them via ``telemetry.py``):
 
+  - ``gate`` — a human acceptance gate decision (G1/G2/G3): who/when/outcome/version.
+    The audit twin of the ``gate_decision`` telemetry event (which feeds M04); the
+    rationale-bearing record of the decision (NFR-03).
+  - ``flag`` — an operator disposition of a BRD-authoring flag (scope ripple, etc.):
+    who/when/option/severity/**rationale** (D6c material-vs-advisory). Twin of the
+    ``flag_decision`` telemetry event.
   - ``reonboard_flag`` — the *extractor* coverage floor was tripped (§5.4, FR-DC-16):
     "a structural idiom the frozen tool can't parse — re-bless it?"
   - ``vocab_gap_flag`` — the *vocabulary* adequacy detector raised its hand
     (§5.4.1, ADR-003 / FR-DC-21): "a concept the frozen dictionary can't tag."
 
-Both are the same shape of event: a **frozen artifact noticing it has been
-outgrown and asking a human**. Neither writer mutates the artifact — it records a
-hand-raise for a human to dispose of (`decision` defaults to ``"pending"`` until a
-human picks ``amend-vocab`` / ``accept-as-is`` / ``re-onboard``). The run is NOT
+``reonboard_flag`` / ``vocab_gap_flag`` are the same shape of event: a **frozen artifact
+noticing it has been outgrown and asking a human**. Neither writer mutates the artifact —
+it records a hand-raise for a human to dispose of (`decision` defaults to ``"pending"``
+until a human picks ``amend-vocab`` / ``accept-as-is`` / ``re-onboard``). The run is NOT
 blocked by either (advisory runtime flags; §10 containment stays the hard gate).
 
 Records are appended to a run's ``ledger/decisions.jsonl`` (created with the run
@@ -45,6 +51,66 @@ def append_decision(ledger_path: str | Path, record: dict) -> dict:
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
     return record
+
+
+def gate(
+    ledger_path: str | Path,
+    *,
+    gate: str,
+    outcome: str,
+    version: int,
+    actor: str = DEFAULT_ACTOR,
+    ts: str | None = None,
+) -> dict:
+    """Write a ``gate`` record (§3.6) — a human acceptance gate decision (G1/G2/G3).
+
+    The decisions.jsonl audit twin of the ``gate_decision`` telemetry event: it captures
+    *who* accepted/reopened *which* gate at *what* artifact ``version`` and *when*
+    (NFR-03). ``outcome ∈ {accept, reopen}``; ``gate ∈ {G1, G2, G3}`` (the schema bites).
+    """
+    record = {
+        "ts": ts or _now_iso(),
+        "kind": "gate",
+        "gate": gate,
+        "outcome": outcome,
+        "actor": actor,
+        "version": version,
+    }
+    return append_decision(ledger_path, record)
+
+
+def flag(
+    ledger_path: str | Path,
+    *,
+    flag_type: str,
+    option: str,
+    severity: str,
+    rationale: str,
+    area: str | None = None,
+    actor: str = DEFAULT_ACTOR,
+    ts: str | None = None,
+) -> dict:
+    """Write a ``flag`` record (§3.6) — an operator's disposition of a BRD-authoring flag.
+
+    The rationale-bearing audit twin of the ``flag_decision`` telemetry event. Records the
+    operator-chosen ``option`` for a flag (e.g. a ``scope_ripple`` in ``area``), its
+    ``severity`` (``material`` | ``advisory``, D6c), the ``rationale``, and the actor —
+    the human-mediated scope decision (scope is never auto-changed). ``area`` is optional.
+    """
+    if severity not in ("material", "advisory"):
+        raise ValueError(f"flag severity must be 'material' | 'advisory' (D6c); got {severity!r}")
+    record: dict = {
+        "ts": ts or _now_iso(),
+        "kind": "flag",
+        "flag_type": flag_type,
+    }
+    if area is not None:
+        record["area"] = area
+    record["option"] = option
+    record["severity"] = severity
+    record["rationale"] = rationale
+    record["actor"] = actor
+    return append_decision(ledger_path, record)
 
 
 def reonboard_flag(
