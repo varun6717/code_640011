@@ -210,11 +210,15 @@ to **meaning**:
   no in-vocabulary tag for keeps `tags: []` (e.g. a shared utility header or the vendor shim) — empty is
   honest, an invented tag is not.
 
-> **Vocabulary source (TASK-011 stub note).** The canonical vocabulary is
-> `core/profiles/payment_brand/vocabulary.payment_brand.yaml` (authored in TASK-014). Until that file
-> exists, `load_domain_vocabulary` returns the **D5-pinned stub** — the same 12 tags, reproduced from the
-> frozen D5 table, not invented. TASK-021/046 (`check_vocab_containment.py`) re-points the check at the YAML
-> file. The assertion behaviour does not change; only the source of the set moves from constant to file.
+> **Vocabulary source (finalized at TASK-036).** The canonical vocabulary is
+> `core/profiles/payment_brand/vocabulary.payment_brand.yaml` (authored in TASK-014, now present).
+> `load_domain_vocabulary` still returns the **D5-pinned stub** — the same 12 tags, reproduced from the
+> frozen D5 table — which is **behaviorally identical** to the YAML's tag set (verified at TASK-036: live
+> `assert_tags_in_vocabulary` passed over `fixtures/c_repo`, `untagged_ratio ≈ 0.06`, no flag). Wiring the
+> loader to read the YAML directly — so a future human-gated vocabulary amendment (and its `vocab_sha`
+> bump) actually propagates instead of diverging from the hardcoded stub — is **TASK-046**
+> (`check_vocab_containment.py`). The assertion behaviour does not change; only the source of the set moves
+> from constant to file. Until then the stub and the YAML must be kept in lockstep (they are, this slice).
 
 ### Vocabulary adequacy — `uncovered_concepts` (ADR-003 / FR-DC-21)
 

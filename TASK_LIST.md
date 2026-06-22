@@ -83,7 +83,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-033 — `source_processor` skill: fan-out worker per source; failure-isolated; reads `adapter.yaml` for run order; no domain knowledge · `Opus`
 - [x] TASK-034 — Run `pdf_extract`→`article_summarize`→`change_type_assess` over PDF fixtures; verify entries vs `expected_manifest_entries.json` · `Sonnet`
 - [x] TASK-035 — Clone SEAL-ID repo + run `merge_manifest.py` → assembled `index.json` with `sources_status` · `Sonnet`
-- [ ] TASK-036 — `code_map_build` skill: drive frozen extractor through 3-branch gate → `code_map.json` per §3.3 · `Sonnet`
+- [x] TASK-036 — `code_map_build` skill: drive frozen extractor through 3-branch gate → `code_map.json` per §3.3 · `Sonnet`
 - [ ] TASK-037 — `brd_author`: deterministic baseline+profile merge + discovery framing (2–3 questions, seed coarse code pass) · `Opus`
 - [ ] TASK-038 — `brd_author`: per-section authoring loop; §3.2 selective-read routing; `must_capture` check; probe gaps; coverage footer · `Opus`
 - [ ] TASK-039 — `brd_author`: cite-or-flag grounding rules; revisit/shared-memory (never re-ask answered questions) · `Sonnet`

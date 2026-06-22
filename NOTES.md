@@ -42,3 +42,19 @@ worker's responsibility (orchestrator level) and isn't encoded in the skill yet.
 the local fixture clones with `commit_sha: null`, so there is no SHA to "match" anyway — full D8b
 skip-if-matching is a **port-time** behavior (real git repo + SHA). Recommend: add a worker-level
 "repo/ present at pinned SHA → skip clone" check when repo SHAs become real. V to decide if/when.
+
+## TASK-036 — finalization findings (for TASK-046)
+
+1. **`load_domain_vocabulary` reads a hardcoded stub, not the YAML.** `core/extractors/__init__.py`
+   returns `D5_PAYMENT_BRAND_VOCABULARY` (12 tags) and its docstring still says the YAML is "not yet
+   present" — but `vocabulary.payment_brand.yaml` exists (TASK-014). Behaviorally correct today (stub ==
+   YAML tag set; verified live at TASK-036), but a future vocab amendment would NOT propagate. TASK-046
+   should wire the loader to read the YAML + correct the docstring.
+2. **`vocab_sha` drift (low priority).** `onboarding_manifest.yaml` records `vocab_sha: d5frozen`, while
+   CLAUDE.md's F1-reconciliation note says the YAML bumped to `d5frozen-r2` (emitted_by column fix; the
+   12-tag SET is unchanged). Inert now (loader uses the stub, gate cache key is internally consistent at
+   d5frozen), but it's the same disconnect as (1): the YAML's version isn't actually read. Reconcile when
+   wiring (1).
+
+Neither blocks TASK-036: code_map.json was produced, matches the oracle (0 per-file diffs; coverage 0.82),
+and the gate/containment/adequacy checks pass live.
