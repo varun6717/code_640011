@@ -92,7 +92,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-042 — `brd_author` flag loop: surface→wait→apply→conditional re-run; material vs advisory per D6c; no auto scope changes · `Opus`
 - [x] TASK-043 — `brd_validator` + G1: score = 0.7×topic_coverage + 0.3×citation_integrity; hard preconditions on required topics + flags · `Sonnet`
 - [x] TASK-044 — `frd_author` skill: consume accepted BRD; `traces_to`; carry file/function detail forward that BRD stays silent on · `Opus`
-- [ ] TASK-045 — `frd_validator` + G2: score = 0.5×traceability + 0.5×testability; hard precondition every BRD requirement traced · `Sonnet`
+- [x] TASK-045 — `frd_validator` + G2: score = 0.5×traceability + 0.5×testability; hard precondition every BRD requirement traced · `Sonnet`
 
 **Phase 4 — Build harness & acceptance**
 - [ ] TASK-046 — `check_vocab_containment.py`: assert all profile topics + adapter tags ∈ `vocabulary.payment_brand.yaml` · `Sonnet`
