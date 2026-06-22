@@ -115,3 +115,18 @@ Also cleaned a stray TASK-041 build-process reference in the code-impact pointer
 
 **brd_author skill now complete** across TASK-037/038/039 (merge + discovery → per-section loop →
 grounding + revisit). Remaining brd_author addition is the human-mediated flag loop (TASK-042).
+
+## TASK-040 — code_impact coarse pass (map-only)
+
+Created `core/skills/code_impact_assess.skill.md` with the **coarse** portion: read `code_map.json`
+only (no source), match requirement `topics` × entry `tags` (same-vocabulary set-intersection) + a
+`purpose` sweep, roll matched files up to module/area, rank by tag strength then purpose (required
+topics outrank optional). Output = ranked **candidate areas** (NOT Flags) + rough risk read,
+business-framed; threads into early BRD sections + sharpens discovery. Deep mode + required Flags
+schema + output contract + handoff are forward stubs for **TASK-041**.
+
+**Proof:** `fixtures/code_impact/expected_coarse_areas.md` — over the real
+`runs/r-2026-06-17-001/context_set/code_map.json` (TASK-036) × the payment_brand `code_impact` topics
+{routing, settlement}: areas rank routing (7 tag hits, required) > settlement (5 hits, optional);
+non-matching modules excluded; the routing↔settlement ripple is explicitly NOT asserted (deep-pass
+flag, TASK-041). No `repo/` source read.
