@@ -498,12 +498,24 @@ Each stage's output is the next stage's input, validated by fixtures. **BRD → 
 ## L1 — Ingestion
 
 ### TASK-033 — `source_processor` (fan-out, failure-isolated)
-- **Phase:** P3 · **Depends on:** TASK-017
+- **Phase:** P3 · **Depends on:** TASK-017, **TASK-023** (must emit the per-source slice that `merge_manifest.py` already consumes).
 - **Model:** Opus — complex fan-out orchestration with failure isolation; this skill is the engine the entire ingestion pipeline runs on (`adapter.yaml`), TASK-022.
-- **Reads:** `docs/TECH_SPEC.md` §4 (the `source_processor` rows); `docs/SKILLS_INDEX.md` (source_processor); `docs/REQUIREMENTS.md` FR-DC-01/05, D8b/c.
+- **Reads:** `docs/TECH_SPEC.md` §4 (the `source_processor` rows); `docs/SKILLS_INDEX.md` (source_processor); `docs/REQUIREMENTS.md` FR-DC-01/05, D8b/c. **Also read the per-source slice contract in `core/scripts/merge_manifest.py`'s module docstring (defined at TASK-023; §3.2 pins only the `index.json` output, not this intermediate).**
 - **Creates / edits:** `core/skills/source_processor.skill.md`.
 - **Do:** One reusable fan-out worker; one instance per source in parallel; owns a source end-to-end and writes its slice + manifest entries. Reads `adapter.yaml` for run order; carries no domain knowledge itself.
-- **Acceptance:** split at the source/source-type boundary, **never per file** (FR-DC-05); a single source failing does **not** fail the batch — partials + gap list (D8c, FR-XS-18).
+- **⚠️ Slice contract — BINDING (the consumer `merge_manifest.py` already exists, TASK-023).** Each worker MUST write exactly one slice file at `context_set/<source>/_slice.json` with this shape; `merge_manifest.py` fans these in → `index.json`. Do not invent a different name/shape — change both sides together or the seam breaks (re-run `fixtures/merge_manifest` after any change).
+  ```json
+  {
+    "source":  "<label>",                  // required — logical source label; partitions context_set/<source>/
+    "status":  "ok" | "failed",            // required
+    "domain":  "payment_brand",            // optional — carried up to index.json top level
+    "files":   [ <§3.2 manifest entry>, … ],   // may be [] or PARTIAL on failure (D8c keeps partials)
+    "note":    "code_map.json built",      // optional — e.g. the code arm builds no doc entries
+    "reason":  "…"                          // required iff status=="failed" (the recorded gap, D8c)
+  }
+  ```
+  Doc arm: `files[]` = the manifest entries the adapter pipeline built (`path/source/url/ingest_ts/adapter/change_type/topics/descriptor`). Code arm: typically `files: []` + `note`. A failed source still writes a slice (`status:"failed"` + `reason`) — never absent, never silently dropped (FR-DC-05/D8c). `merge_manifest.py` rejects a `failed` slice with no `reason`, a bad `status`, or non-list `files` as a loud error.
+- **Acceptance:** split at the source/source-type boundary, **never per file** (FR-DC-05); a single source failing does **not** fail the batch — partials + gap list (D8c, FR-XS-18); each worker emits a contract-valid `_slice.json` that `merge_manifest.py` fans in cleanly (run the TASK-023 script over the live slices and confirm `index.json`).
 - **Fixture / proof:** TASK-003 PDF + a deliberately-failing second source.
 - **Satisfies:** FR-DC-01, FR-DC-05, FR-XS-18.
 
