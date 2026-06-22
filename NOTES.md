@@ -150,3 +150,22 @@ contract noted (clean req → `flags: []`).
 
 **code_impact skill now complete** (TASK-040 coarse + TASK-041 deep). brd_author's consumption of these
 flags = the human-mediated flag loop in **TASK-042**.
+
+## TASK-042 — brd_author human-mediated flag loop + material threshold
+
+Expanded the code-impact section in `core/skills/brd_author.skill.md` with the full GF flag loop
+(FR-BR-08, FR-BR-13, D6c): delegate deep `code_impact` → draft business-framed → per flag, one at a
+time: **surface** (finding/implication/options + recommended_option, recommend-not-decide) → **wait** →
+**classify material vs advisory** by the D6c three-line test (operator's choice confirms the proposed
+severity; can flip it either way) → **apply** (revise affected sections incl. earlier ones) →
+**conditional re-run** (material → `code_impact` scoped to the *changed surface only*, FR-BR-13;
+advisory → none) → **record** both ledgers: `decisions.flag(...)` + `telemetry.flag_decision(...)`
+(concrete TASK-032 APIs). G1 is the backstop. No auto-applied scope change.
+
+**Proof:** `fixtures/brd_author/expected_flag_loop.md` — the single TASK-041 routing→settlement
+`scope_ripple` (proposed material) resolved two ways: "include settlement in scope" → material (adds a
+module to in-scope) → revise + re-run over settlement only; "accept risk" → advisory (crosses no D6c
+line) → record only, no re-run. Both show the exact ledger + telemetry writes.
+
+brd_author skill: merge+discovery (037) + loop (038) + grounding/revisit (039) + flag loop (042) = the
+authoring agent complete. Next BRD-layer task is **TASK-043** (brd_validator + G1).

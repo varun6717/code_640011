@@ -262,10 +262,41 @@ Sections are **not independent**, and answers are **never re-asked**.
 ## Code-impact section (delegates to `code_impact`)
 
 When you reach the `code_impact` section (profile section routed to `source=bitbucket`), delegate to the
-`code_impact` subagent and draft the section **business-framed** (impacted systems / scale / risk — no
-file/function detail; that is carried to the FRD). Do **not** auto-apply scope changes from returned
-flags — surface, wait, apply (operator-decided). *(The deep pass + the full human-mediated flag loop —
-FR-BR-08 — are detailed in `code_impact_assess.skill.md` and the flag-loop section added later.)*
+`code_impact` subagent (deep mode), passing the requirement + the candidate areas from the discovery
+coarse pass. It returns an impact summary **and** a required Flags list. Draft the section
+**business-framed** (impacted systems / scale / risk — no file/function detail; that is carried to the
+FRD), then run the human-mediated flag loop below.
+
+### Human-mediated flag loop (GF — FR-BR-08, FR-BR-13, D6c)
+
+You **never auto-apply a scope change.** For each significant returned flag, run the sub-gate **GF**,
+one flag at a time:
+
+1. **Surface.** Present the flag to the operator: `finding`, `implication`, the `options`, and your
+   `recommended_option` — **recommend, do not decide**. One flag at a time; don't batch.
+2. **Wait.** Block on the operator's chosen option. Nothing changes until they answer.
+3. **Classify material vs advisory (D6c).** `code_impact` *proposes* `severity`; the **operator's
+   decision confirms it**. The resolution is **material** iff the chosen option does **any** of:
+   - changes the impacted **code surface** (adds/removes a module/component from the in-scope set), or
+   - changes a requirement's **`must_capture`** the deep pass relied on, or
+   - moves a **Scope / Out-of-scope boundary**.
+   Otherwise it is **advisory**. (A flag `code_impact` proposed `advisory` becomes `material` if the
+   operator's option crosses one of those three lines — and vice-versa.)
+4. **Apply.** Update the affected BRD sections — including **earlier** ones (scope, requirements, the
+   code-impact section) per the revisit rule — and record the decision + rationale (step 6). Never
+   invent the consequence; apply exactly what the operator chose.
+5. **Conditional re-run (FR-BR-13).** **Material →** re-run `code_impact` **scoped to the changed
+   surface only** (the added/removed modules — not the whole map; consistent with deep mode reading only
+   the flagged slice), then fold the new flags back into this loop. **Advisory →** no re-run; the record
+   + section updates are enough.
+6. **Record (both ledgers).** Write a `flag` record to `decisions.jsonl` and emit the `flag_decision`
+   telemetry event:
+   - `decisions.flag(ledger, flag_type=…, area=…, option=<operator choice>, severity=<material|advisory>,
+     rationale=<operator rationale>, actor=…)`
+   - `telemetry.flag_decision(flag_type=…, option=…, severity=…)`
+
+After all flags are dispositioned, the code-impact section reflects the agreed scope. The **G1 acceptance
+gate is the backstop** for any flag missed here.
 
 ---
 
