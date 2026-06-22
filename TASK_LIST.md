@@ -85,7 +85,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-035 — Clone SEAL-ID repo + run `merge_manifest.py` → assembled `index.json` with `sources_status` · `Sonnet`
 - [x] TASK-036 — `code_map_build` skill: drive frozen extractor through 3-branch gate → `code_map.json` per §3.3 · `Sonnet`
 - [x] TASK-037 — `brd_author`: deterministic baseline+profile merge + discovery framing (2–3 questions, seed coarse code pass) · `Opus`
-- [ ] TASK-038 — `brd_author`: per-section authoring loop; §3.2 selective-read routing; `must_capture` check; probe gaps; coverage footer · `Opus`
+- [x] TASK-038 — `brd_author`: per-section authoring loop; §3.2 selective-read routing; `must_capture` check; probe gaps; coverage footer · `Opus`
 - [ ] TASK-039 — `brd_author`: cite-or-flag grounding rules; revisit/shared-memory (never re-ask answered questions) · `Sonnet`
 - [ ] TASK-040 — `code_impact` coarse pass: map-only, no source files; match requirement topics × `code_map` tags → ranked candidate areas · `Sonnet`
 - [ ] TASK-041 — `code_impact` deep pass: selective-read flagged slice from `repo/`; trace real closure; emit Flags schema every run · `Opus`

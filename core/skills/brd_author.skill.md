@@ -143,8 +143,8 @@ Discovery completes before section authoring begins; the executive summary is st
 > The per-section authoring loop (selective-read routing by §3.2, `must_capture` drafting, gap probing,
 > the `<!-- coverage: {...} -->` footer) is detailed in **§ "Per-section authoring loop"** and the
 > grounding / revisit rules in **§ "Grounding & citation"** / **§ "Revisiting & shared memory"** below.
-> The frame this task pins: discovery (above) **precedes** authoring, the merged plan is iterated **in
-> order**, and the executive summary is **drafted last**.
+> The invariants: discovery (above) **precedes** authoring, the merged plan is iterated **in order**,
+> and the executive summary is **drafted last**.
 
 After discovery, iterate the merged authoring plan in order. For each section: read its profile entry,
 select context via the manifest, draft against each `must_capture`, probe unsatisfied requirements one
@@ -153,8 +153,74 @@ then hand off to `brd_validator` (G1).
 
 ## Per-section authoring loop
 
-*(Built in TASK-038 — selective-read routing per §3.2, `must_capture` evaluation, one-topic-at-a-time
-probing, and the per-section coverage footer.)*
+Iterate the merged authoring plan **in order**. Run this loop for each section; read all domain content
+from the profile each time — never hardcode it. The executive summary is the last iteration.
+
+### a. Read the profile entry
+
+Read the section's `sources`, its `requirements[]`, and per requirement the `topic`, `must_capture`,
+`probe_if_missing`, and `required`. A baseline-skeleton section with no profile `requirements` (e.g.
+`stakeholders`, `out_of_scope`) is drafted from the `UI_INPUT` frame and skill structure — no routing.
+
+### b. Select context — selective routing (§3.2)
+
+Query the manifest (`index.json`, always in view) and load **only** the entries where:
+
+```
+file.source ∈ section.sources   AND   file.topics ∩ section.topics ≠ ∅
+```
+
+`section.topics` is the implicit set of this section's `requirements[].topic`. Load those files' bodies;
+draft from them. **Expand on demand:** if a loaded file or a `must_capture` points at a cross-reference
+the manifest surfaces but the routing rule didn't pull, load that file too.
+
+This is **always selective (FR-BR-04, NFR-05)** — the manifest is always loaded, section-routed files
+load by default, more are pulled only on demand. There is **no load-all path and no size threshold**;
+the loop holds at any corpus size because only the section's routed slice is ever resident. A `source`
+in `section.sources` recorded `status:"failed"` in `sources_status` is treated as a known gap (its
+`must_capture` items fall through to probing), never silently ignored.
+
+For the `code_impact` section (`source=bitbucket`), context is the `code_map.json` + the `code_impact`
+subagent's return, not document bodies — see § "Code-impact section".
+
+### c. Draft against `must_capture` — information hierarchy (FR-BR-03)
+
+For each requirement, satisfy its `must_capture` by drawing on, **in strict priority order**:
+
+1. **Source documents** — the selectively-read `context_set/` files (highest authority).
+2. **The `UI_INPUT` frame** — the operator's authoritative statement of intent/scope, used to anchor —
+   not to fabricate requirements.
+3. **Chat gap-fill** — only for `must_capture` items neither source nor frame satisfies (step d).
+
+Draft each claim grounded at the highest available tier. (Inline citation form and the cite-or-flag
+rule for ungrounded items are in § "Grounding & citation".)
+
+### d. Probe gaps — one topic at a time
+
+Where neither the loaded sources nor the `UI_INPUT` frame satisfies a `must_capture`, ask the operator
+that requirement's `probe_if_missing`. Probes are **gap-fills tied to unsatisfied requirements — not one
+question per file, and not one per section by default**. Ask **one topic at a time**; fold each answer
+in before moving on. Don't interrogate: a section whose `must_capture` items are already satisfied by
+source/frame raises no probe. Required-topic gaps must be probed (or marked open); optional-topic gaps
+may be left thin.
+
+### e. Mark coverage — per-section footer (§3.7)
+
+After drafting, emit a machine-readable coverage footer the `brd_validator` reads — one entry per topic,
+valued by how its `must_capture` was satisfied (`source` / `frame` / `operator`, or `open` if still
+unsatisfied):
+
+```
+<!-- coverage: {mandate: source, brand_rules: operator, routing: source} -->
+```
+
+Then **write the section incrementally** to `BRD.md` (one `##` per section, in merged `order`). The
+accumulating draft keeps earlier sections in view for the rest of the loop.
+
+### Loop exit
+
+When every section has been drafted (executive summary last) and each required section's `must_capture`
+items are satisfied or explicitly `open`/`[TBD]`, hand off to `brd_validator` (G1).
 
 ## Grounding & citation
 

@@ -76,3 +76,22 @@ land with TASK-041). This keeps the file a coherent, clean skill at every increm
 merging the payment_brand profile (TASK-015) over the baseline. `code_impact` lands at #6 (after
 `requirements`, before `success_metrics`); `executive_summary` pinned to #10. Mirrored as a worked table
 in the skill itself.
+
+## TASK-038 — brd_author per-section authoring loop
+
+Replaced the TASK-038 stub in `core/skills/brd_author.skill.md` with the full per-section loop:
+(a) read profile entry → (b) selective routing per §3.2 — load entries where `source ∈ section.sources`
+AND `topics ∩ section.topics ≠ ∅`, expand on demand, manifest always loaded, no load-all / no threshold
+(FR-BR-04, NFR-05) → (c) draft against `must_capture` on the information hierarchy source → frame →
+operator (FR-BR-03) → (d) probe gaps one topic at a time, gap-fills tied to unsatisfied requirements
+(not 1:1 with files) → (e) per-section coverage footer `<!-- coverage: {topic: source|frame|operator|
+open} -->` (§3.7), write incrementally. `code_impact` section routes to `code_map.json` + subagent, not
+doc bodies. Cleaned the overview block's build-process phrasing.
+
+Citation form + cite-or-flag (FR-BR-06) and revisit/shared-memory (FR-BR-05) remain stubs for **TASK-039**.
+
+**Proof:** `fixtures/brd_author/expected_routing.md` — concrete routing trace over the real
+`runs/r-2026-06-17-001/context_set/index.json` (TASK-034, 2 sharepoint files + bitbucket) × the
+payment_brand profile. Shows §1 loads only P1 (not P2, though both are sharepoint) — routing is the
+source∩topic intersection, not source alone; skeleton sections load nothing; `confluence` matches zero
+this run (no confluence files) without error.
