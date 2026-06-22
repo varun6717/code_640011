@@ -97,7 +97,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 **Phase 4 — Build harness & acceptance**
 - [x] TASK-046 — `check_vocab_containment.py`: assert all profile topics + adapter tags ∈ `vocabulary.payment_brand.yaml` · `Sonnet`
 - [x] TASK-047 — `check_overlay_parity.py`: both overlays expose all 8 manifest roles pointing at same shared skills · `Sonnet`
-- [ ] TASK-048 — `build_checks.py` runner (all five checks) + `metrics_scan.py` deriving all MVP metrics from `telemetry.jsonl` · `Sonnet`
+- [x] TASK-048 — `build_checks.py` runner (all five checks) + `metrics_scan.py` deriving all MVP metrics from `telemetry.jsonl` · `Sonnet`
 - [ ] TASK-049 — End-to-end acceptance: PDF + repo → BRD vN → FRD; flag loop + G1 reopen; `build_checks.py` green · `Opus`
 
 **Phase 5 — Deferred follow-on (named only; see end of file)**
