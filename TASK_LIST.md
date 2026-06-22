@@ -91,7 +91,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-041 — `code_impact` deep pass: selective-read flagged slice from `repo/`; trace real closure; emit Flags schema every run · `Opus`
 - [x] TASK-042 — `brd_author` flag loop: surface→wait→apply→conditional re-run; material vs advisory per D6c; no auto scope changes · `Opus`
 - [x] TASK-043 — `brd_validator` + G1: score = 0.7×topic_coverage + 0.3×citation_integrity; hard preconditions on required topics + flags · `Sonnet`
-- [ ] TASK-044 — `frd_author` skill: consume accepted BRD; `traces_to`; carry file/function detail forward that BRD stays silent on · `Opus`
+- [x] TASK-044 — `frd_author` skill: consume accepted BRD; `traces_to`; carry file/function detail forward that BRD stays silent on · `Opus`
 - [ ] TASK-045 — `frd_validator` + G2: score = 0.5×traceability + 0.5×testability; hard precondition every BRD requirement traced · `Sonnet`
 
 **Phase 4 — Build harness & acceptance**
@@ -722,7 +722,7 @@ Each item is a future seam extension, not a gap. They are deferred by decision, 
 - **Multi-domain** — additional domain seams + `domains_index.yaml` (the `domain_onboard` flow above is its vocabulary-authoring aid); the YAML baseline extraction deferred under D2. (FR-BR-11/14, FR-XS-21 — all W.)
 - **Metrics dashboard / SQLite** — promote the JSONL ledger to a queryable store + dashboard. (D8 persistence split; FR-MX-*.)
 - **Auto-launch / Claude-only spine convenience** — operator-gesture automation beyond the two-step Generate.
-- **FastAPI / React web UI** — implement Generate behind the P0-locked `UI_INPUT.yaml` contract for non-technical operators + role gating + telemetry surface.
+- **FastAPI / React web UI** — implement Generate behind the P0-locked `UI_INPUT.yaml` contract for non-technical operators + role gating + telemetry surface. **Follow-up (planned):** after TASK-049, expand this bullet into a proper task breakdown (TASK-050+) — UI screens + the FastAPI backend that drives Generate — decomposed against §3.1 and the FR-XS UI requirements, with the standard Depends/Reads/Creates/Acceptance/Fixture anatomy. Scope decision pending: whether it lands in this external-build repo or the VDI-port artifact.
 
 ---
 
