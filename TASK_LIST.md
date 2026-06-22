@@ -80,7 +80,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-032 — `telemetry.py`: `emit()` + `decisions.jsonl` writer + `run_state.json` updater covering all §8.1 events · `Sonnet`
 
 **Phase 3 — Framework build: the spine**
-- [ ] TASK-033 — `source_processor` skill: fan-out worker per source; failure-isolated; reads `adapter.yaml` for run order; no domain knowledge · `Opus`
+- [x] TASK-033 — `source_processor` skill: fan-out worker per source; failure-isolated; reads `adapter.yaml` for run order; no domain knowledge · `Opus`
 - [ ] TASK-034 — Run `pdf_extract`→`article_summarize`→`change_type_assess` over PDF fixtures; verify entries vs `expected_manifest_entries.json` · `Sonnet`
 - [ ] TASK-035 — Clone SEAL-ID repo + run `merge_manifest.py` → assembled `index.json` with `sources_status` · `Sonnet`
 - [ ] TASK-036 — `code_map_build` skill: drive frozen extractor through 3-branch gate → `code_map.json` per §3.3 · `Sonnet`
