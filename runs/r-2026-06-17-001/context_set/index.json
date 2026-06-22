@@ -39,6 +39,11 @@
   ],
   "sources_status": [
     {
+      "source": "bitbucket",
+      "status": "ok",
+      "note": "repo cloned to repo/ (SEAL-12345, commit_sha: null — local fixture); code_map.json built at TASK-036"
+    },
+    {
       "source": "sharepoint",
       "status": "ok",
       "files": 2

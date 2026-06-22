@@ -32,3 +32,13 @@ from SharePoint keeps the same `source: sharepoint` label and routes identically
 **step 1** changes: generalize `pdf_extract` into a format-dispatching `doc_extract` (or add a sibling
 extraction skill), leaving `article_summarize` / `change_type_assess` untouched. Same "write one more
 extractor" seam pattern as the connectors. (Forward-compat note; deferred — see §11.)
+
+## TASK-035 — clone idempotency caveat (open item, low priority)
+
+D8b specifies clone idempotency as "re-clone/pull to pinned SHA; **skip if present & matching**."
+`clone.py` instead implements **protective** idempotency: it raises `FileExistsError` on a populated
+`repo/` (won't silently double-clone/clobber). The *skip-if-present* decision is the `source_processor`
+worker's responsibility (orchestrator level) and isn't encoded in the skill yet. For the external build
+the local fixture clones with `commit_sha: null`, so there is no SHA to "match" anyway — full D8b
+skip-if-matching is a **port-time** behavior (real git repo + SHA). Recommend: add a worker-level
+"repo/ present at pinned SHA → skip clone" check when repo SHAs become real. V to decide if/when.
