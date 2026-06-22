@@ -74,7 +74,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-026 — One canonical `instruction_file.template.md`; generation emits `CLAUDE.md` or `copilot-instructions.md` by `runtime_tool` · `Sonnet`
 - [x] TASK-027 — Claude overlay: 8 thin `.md` agent wrappers, each body pointing at one shared `core/skills/` skill · `Sonnet`
 - [x] TASK-028 — Claude overlay: 3 prompt files (`start-brd/frd/jira`) + `terminal_interactive` launch · `Sonnet`
-- [ ] TASK-029 — Copilot overlay: parity twin of TASK-027 in native Copilot syntax (frontmatter + location differ) · `Sonnet`
+- [x] TASK-029 — Copilot overlay: parity twin of TASK-027 in native Copilot syntax (frontmatter + location differ) · `Sonnet`
 - [ ] TASK-030 — Copilot overlay: parity twin of TASK-028 with `agent_mode` launch + `Ctrl+N` gesture · `Sonnet`
 - [ ] TASK-031 — `generate.py` scaffolder: deterministic Generate → run workspace + instruction file + G0 inspection checkpoint · `Opus`
 - [ ] TASK-032 — `telemetry.py`: `emit()` + `decisions.jsonl` writer + `run_state.json` updater covering all §8.1 events · `Sonnet`
