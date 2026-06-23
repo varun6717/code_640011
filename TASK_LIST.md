@@ -100,7 +100,16 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-048 — `build_checks.py` runner (all five checks) + `metrics_scan.py` deriving all MVP metrics from `telemetry.jsonl` · `Sonnet`
 - [x] TASK-049 — End-to-end acceptance: PDF + repo → BRD vN → FRD; flag loop + G1 reopen; `build_checks.py` green · `Opus`
 
-**Phase 5 — Deferred follow-on (named only; see end of file)**
+**Phase 5 · Milestone 5A — Self-serve run: UI + hosted sources + live connectors** *(PRIORITY)*
+- [ ] TASK-050 — Generate backend service (FastAPI): config → `UI_INPUT.yaml` → `generate.py` (G0); status from ledger · `Sonnet`
+- [ ] TASK-051 — React Run Configurator from `PDLC_Configurator.jsx` (5 tabs) → emits §3.1 `UI_INPUT.yaml`; Generate + hand-off · `Sonnet`
+- [ ] TASK-052 — `jpmc_adapters/auth.py` real `resolve_auth` (auth_ref → secret store; bitbucket/sharepoint) · `Sonnet`
+- [ ] TASK-053 — Registry (repo #1) on Bitbucket + hydrate-from-remote at pinned `registry_sha` · `Sonnet`
+- [ ] TASK-054 — Live Bitbucket code-source clone (repo #2) through the resolved auth seam; pin `commit_sha` · `Sonnet`
+- [ ] TASK-055 — `ingest_sharepoint.py` — SharePoint PDF connector (source-type-keyed; same descriptor) · `Sonnet`
+- [ ] TASK-056 — Self-serve acceptance: UI → Generate → VS Code Claude Code/Copilot → BRD/FRD · `Opus`
+
+**Phase 5 · Milestone 5B — Enhancements (backlog; see end of file)**
 
 ---
 
@@ -697,13 +706,112 @@ The five build checks become runnable, and the spine is exercised end-to-end on 
 
 ---
 
-# Phase 5 — Deferred follow-on (named only — do NOT build this slice)
+# Phase 5 — Productionize + enhance
 
-Each item is a future seam extension, not a gap. They are deferred by decision, not omission.
+Two milestones, in order. **Milestone 5A is the priority:** stand up the UI and the live
+source connectors so the operator can configure a run in the browser, hit **Generate**, then
+open VS Code (Claude Code / Copilot) to drive BRD→FRD — a fresh end-to-end run, self-served.
+The UI does **config + Generate only** (it writes `UI_INPUT.yaml` and runs `generate.py`; it
+does **not** run the agent — auto-launch stays deferred). Two Bitbucket repos play distinct
+roles: **repo #1 = the registry** (the selective PDLC folders Generate hydrates *from*),
+**repo #2 = the C code source** entered in the UI as a `type: bitbucket` source (single
+code-repo per run — cross-repo closure stays 5B). PDFs come from **SharePoint**. All
+connectors + the auth seam are built **in this repo**; the UI writes the URLs/locations into
+`UI_INPUT.yaml`. **Milestone 5B** is the enhancement backlog — tackled after 5A lands.
+
+---
+
+## Milestone 5A — Self-serve run (UI + hosted sources + live connectors)  *(PRIORITY)*
+
+### TASK-050 — Generate backend service (FastAPI)
+- **Phase:** P5-A · **Depends on:** TASK-031 (`generate.py`), TASK-048 (`build_checks.py`).
+- **Model:** Sonnet — a service wrapper around an existing deterministic CLI; no new judgment.
+- **Reads:** `docs/TECH_SPEC.md` §3.1 (UI_INPUT contract), §6.3 (instruction gen), Appendix B (hydrate); `core/scripts/generate.py` docstring.
+- **Creates / edits:** `core/app/backend/` (FastAPI) — `POST /generate` (config → `UI_INPUT.yaml` → `generate.py` → G0 descriptor + checklist + scaffold path), `GET /runs/{id}/status` (reads `run_state.json` + `telemetry.jsonl`), `GET /runs/{id}/ui_input`.
+- **Do:** Validate posted config against §3.1; write `UI_INPUT.yaml`; invoke `generate.py` (registry from config); return the G0 descriptor — **no agent run** (Generate only, FR-XS-09).
+- **Acceptance:** valid config → `UI_INPUT.yaml` written + workspace scaffolded + G0 descriptor (`ran_workflow:false`); invalid config → 422 naming the failing field; status endpoint mirrors the ledger.
+- **Fixture / proof:** replay `fixtures/UI_INPUT.example.yaml` fields through the API → byte-equal `UI_INPUT.yaml` + same descriptor as the CLI.
+- **Satisfies:** FR-XS-02, FR-XS-09, FR-XS-16, NFR-01.
+
+### TASK-051 — React Run Configurator (from `PDLC_Configurator.jsx`)
+- **Phase:** P5-A · **Depends on:** TASK-050, TASK-002 (locked `UI_INPUT` contract), `docs/design/PDLC_Configurator.jsx`.
+- **Model:** Sonnet — port a complete mockup to a working app; screens + `UI_INPUT` emit are already designed.
+- **Reads:** `docs/design/PDLC_Configurator.jsx` (the 5 tabs + the `UI_INPUT` preview), `docs/TECH_SPEC.md` §3.1, `docs/REQUIREMENTS.md` FR-XS-06.
+- **Creates / edits:** `core/app/frontend/` — the 5-tab configurator (IDE Repo Initializer · Domain · Project & Requirement · Artifact Inventory · Generator).
+- **Do:** Realize the mockup as a working SPA. **Artifact Inventory** collects sources (SharePoint PDF URLs, Bitbucket code `repo_url`+`seal_id`, the registry location) → §3.1 `UI_INPUT.yaml`. **Generator** calls `POST /generate`, shows G0 + the **manual hand-off** steps (open VS Code Claude Code/Copilot; the UI does not start the agent).
+- **Acceptance:** a non-technical operator completes all 5 tabs → Generate → workspace scaffolded; emitted `UI_INPUT.yaml` conforms to §3.1; the `runtime_tool` switch (claude|copilot) works (FR-XS-06); config immutable after Generate (re-config = new run).
+- **Fixture / proof:** a click-through producing a `UI_INPUT.yaml` matching the example contract.
+- **Satisfies:** FR-XS-02, FR-XS-06, FR-XS-16.
+
+### TASK-052 — `jpmc_adapters` auth seam (real `resolve_auth`)
+- **Phase:** P5-A · **Depends on:** TASK-000 (`jpmc_adapters/` dir); §7.
+- **Model:** Sonnet — a bounded seam: map `auth_ref` → secret, no business logic.
+- **Reads:** `docs/TECH_SPEC.md` §7 (auth/push seam); `docs/REQUIREMENTS.md` FR-DC-12.
+- **Creates / edits:** `core/adapters/jpmc_adapters/auth.py` — `resolve_auth(auth_ref)` for `jpmc_adapters:bitbucket | :sharepoint | :confluence` → credentials from a pluggable secret backend (env/keyring now, JPMC store at port).
+- **Do:** Replace the ambient-passthrough stub with a real resolver keyed by `auth_ref`; consumed by `clone.py` + `ingest_sharepoint.py`. Secret never inline, never in artifacts/ledger.
+- **Acceptance:** `resolve_auth` returns usable creds per `auth_ref`; a missing secret fails loud (named); no secret reaches the workspace/ledger/artifacts (FR-DC-12); `auth_ref` recorded as a pointer only.
+- **Fixture / proof:** a stub secret backend; resolve a bitbucket + a sharepoint `auth_ref`; assert no secret on disk.
+- **Satisfies:** FR-DC-12, §7.
+
+### TASK-053 — Registry (repo #1) on Bitbucket + hydrate-from-remote
+- **Phase:** P5-A · **Depends on:** TASK-024 (`hydrate.py`), TASK-052, TASK-048 (publish gate).
+- **Model:** Sonnet — packaging + remote-clone wiring on the existing hydrate path.
+- **Reads:** `docs/TECH_SPEC.md` Appendix B (hydration), §2.1 (registry layout), §6.6.1.
+- **Creates / edits:** a registry-publish manifest (the selective PDLC folders that constitute the registry — `core/`, `overlays/`, the `docs/` subset, profiles/templates) + remote-registry support in `hydrate.py`/`generate.py`.
+- **Do:** Define the publishable registry subset and push it to Bitbucket as **repo #1**; make `--registry` accept a Bitbucket URL → clone at `registry_sha` through the auth seam → verify the SHA. Publish runs `build_checks.py` (§10) as a **hard gate** before push.
+- **Acceptance:** `generate.py --registry <bitbucket-url>` hydrates at the pinned `registry_sha` on the **verified** path (not the non-git unverified convenience); a registry push is blocked unless build checks are green.
+- **Fixture / proof:** hydrate from a local bare-git "Bitbucket" remote; `registry_sha_verified == requested`.
+- **Satisfies:** FR-XS-10, NFR-01, §6.6.1.
+
+### TASK-054 — Live Bitbucket code-source clone (repo #2)
+- **Phase:** P5-A · **Depends on:** TASK-020 (`clone.py`), TASK-052.
+- **Model:** Sonnet — validate the existing clone path against a real host + auth.
+- **Reads:** `docs/TECH_SPEC.md` §6.6.2, §7; `docs/REQUIREMENTS.md` FR-DC-02/11/12.
+- **Creates / edits:** `clone.py` auth wiring (resolve `auth_ref: jpmc_adapters:bitbucket` via TASK-052) — no contract change.
+- **Do:** Clone the UI-supplied `repo_url` from a reachable Bitbucket host through the resolved auth seam into `repo/`; pin `commit_sha` (NFR-01); idempotent on SHA match (D8b).
+- **Acceptance:** a real (or local-remote) Bitbucket repo clones end-to-end through the seam; `commit_sha` pinned + recorded; no secret on disk; §10.4 connector coverage stays green.
+- **Fixture / proof:** clone from a local bare-git remote with a stub `auth_ref`.
+- **Satisfies:** FR-DC-02, FR-DC-11, FR-DC-12, §7.
+
+### TASK-055 — SharePoint PDF connector (`ingest_sharepoint.py`)
+- **Phase:** P5-A · **Depends on:** TASK-020 (`ingest_file.py` contract), TASK-033 (`source_processor`), TASK-052.
+- **Model:** Sonnet — one more source-type-keyed connector on the established contract.
+- **Reads:** `core/scripts/ingest_file.py` (descriptor contract), `docs/TECH_SPEC.md` §6.6.2, §3.2; `docs/REQUIREMENTS.md` FR-DC-01/11/12.
+- **Creates / edits:** `core/scripts/ingest_sharepoint.py`.
+- **Do:** Pull a PDF from a SharePoint URL (auth via TASK-052) → stage under `context_set/<source>/` → emit the **same** source descriptor `pdf_extract` reads (identical shape to `ingest_file.py`). Never branches on `domain`.
+- **Acceptance:** a SharePoint URL source stages the PDF + emits a contract-valid descriptor; downstream `pdf_extract → article_summarize → change_type_assess` unchanged; §10.4 maps `type:sharepoint → ingest_sharepoint.py` (green); no domain branch (AST check).
+- **Fixture / proof:** a stub SharePoint endpoint serving the TASK-003 PDF; descriptor matches `ingest_file.py`'s shape.
+- **Satisfies:** FR-DC-01, FR-DC-11, FR-DC-12.
+
+### TASK-056 — Self-serve milestone acceptance (UI → Generate → tool → BRD/FRD)
+- **Phase:** P5-A · **Depends on:** TASK-050..055.
+- **Model:** Opus — the full operator-driven path; highest-stakes of 5A.
+- **Reads:** `docs/ACCEPTANCE.md` (the TASK-049 spine run) + every 5A task above.
+- **Creates / edits:** `docs/ACCEPTANCE_5A.md` (the self-serve run log + artifact links).
+- **Do:** From the React UI, configure a run (Domain `payment_brand`; sources = SharePoint PDF(s) + Bitbucket code repo; registry = Bitbucket) → **Generate** (G0) → open VS Code Claude Code/Copilot in the scaffold → run the spine → accepted BRD + FRD. Nothing outside the seam changes.
+- **Acceptance:** an operator completes a fresh run unaided through UI + tool; `UI_INPUT.yaml` carries the real URLs; sources pulled live through the connectors + auth seam; BRD/FRD pass G1/G2; `build_checks.py` green; `metrics_scan.py` derives the run's metrics.
+- **Fixture / proof:** the run workspace + ledger + `docs/ACCEPTANCE_5A.md`.
+- **Satisfies:** FR-XS-02/06/09/16, FR-DC-01/02/11/12.
+
+> 🔁 **Milestone 5A done = self-serve run works.** Only then start Milestone 5B.
+
+---
+
+## Milestone 5B — Enhancements (backlog; decompose into tasks when 5A is done)
+
+Each item is a future seam extension, not a gap — deferred by decision, not omission. Rough
+priority order below. **Carried fixes (small, do alongside):** (a) `brd_validator.record_g1` /
+`frd_validator.record_g2` hardcode `tool="claude"` in their telemetry `Emitter` regardless of
+`UI_INPUT.runtime_tool` — thread the run's actual tool through (surfaced at TASK-049: the
+acceptance ledger mixed `copilot`/`claude` envelopes). (b) Reconcile D5's `card_brand` /
+`message_format` `emitted_by` gap in `docs/REQUIREMENTS.md` (the `vocabulary.yaml` r2 fix is
+already in; D5 itself still carries it — port note). (c) `fixtures/UI_INPUT.example.yaml`
+frame still says "Discover" while the bundled PDF fixture is the Mastercard mandate — align
+for fixture consistency.
 
 - **Jira push + `jpmc_adapters` + G3** — `jira_author`/`jira_validator` (§9.4), `jira_plan/` + `trace.json` (§3.8), the `jpmc_adapters` Jira interface (the **only** external mutation), gate G3, and `jira_template` in the seam (§10.3 will then require it). (FR-JR-*, FR-XS-17.)
-- **Multi-input** — additional source connectors (Confluence/SharePoint variants) beyond the slice-1 two; `source_processor` already fans out.
-- **Live Bitbucket connectivity test + `jpmc_adapters` auth seam (§7)** — `clone.py`'s git-clone path (connect → pull HEAD/latest → pin `commit_sha`, NFR-01) is **already built and validated in-slice** (TASK-020) against a **local git repo**; git is git, so the *mechanism* needs no change for a real host. Deferred is the **live validation against a reachable Bitbucket server** plus binding `auth_ref: jpmc_adapters:bitbucket` to a **real secret** via `core/adapters/jpmc_adapters/auth.py` (`resolve_auth` is a documented ambient-cred passthrough today). This is normally the **VDI-port** job (the secret store is environment-specific); the named follow-on is to clone a real repo end-to-end through the resolved seam and confirm the pinned `commit_sha`. Symmetric with the deferred SharePoint pull (which, unlike this, also needs a net-new connector). (FR-DC-02/11/12, §7.)
+- **Multi-input** — additional source connectors beyond 5A's SharePoint+Bitbucket: **Confluence** (`ingest_confluence.py`, in the §3.1 example) and other doc sources. Same source-type-keyed contract; `source_processor` already fans out. (SharePoint is promoted to 5A/TASK-055.)
+- **Real JPMC host/secret validation (port-tied)** — 5A builds the auth seam (TASK-052) + clones through it from a local-remote Bitbucket (TASK-054) and pulls SharePoint from a stub (TASK-055). What remains is binding `auth_ref` to the **real JPMC secret store** and validating against the **live** Bitbucket/SharePoint servers — environment-specific, normally the **VDI-port** job. The mechanism is unchanged; only the secret backend + endpoints differ. (FR-DC-02/11/12, §7.)
 - **Multi-repo** — populate the reserved `external_calls` / `exposes` cross-repo fields in `code_map.json` (§3.3) and cross-repo closure. (FR-DC-18.)
 - **Fuller leverage of `purpose` in code_impact (enhances TASK-040/041; V-identified)** — today `purpose` (the model-owned free-text field on each `code_map` component) is used for *comprehension, ranking, and narrative grounding* but **not** for candidate *discovery*. Two additive enhancements, both deferred to the real (VDI) corpus where tagging is actually imperfect (our synthetic fixtures fit the 12 tags, so the value can't manifest in-slice):
   - **(1) `purpose`-as-discovery in the coarse pass (most valuable).** Today the coarse pass (TASK-040) matches requirement `topics` × code_map `tags` to pick candidate areas and uses `purpose` only to *rank* them. Enhancement: let the coarse pass — already a model-driven agent reading the map — also use `purpose` for **semantic candidate discovery** (surface a component whose `purpose` describes the requirement's concept even when the matching *tag* was not applied). Directly mitigates the **under-applied-existing-tag blind spot** (a mis-tagged file recoverable today only via deep-pass structural closure, and only if structurally connected). **Does not violate any binding rule** — the model-free constraint governs *building* the map (§5), not how the already-model-driven coarse consumer reasons over it; cost is a precision/recall tradeoff vs. the clean tag join, not architectural. Must stay advisory + cite-or-flag (never silently widen scope; surface via Flags).
@@ -722,7 +830,7 @@ Each item is a future seam extension, not a gap. They are deferred by decision, 
 - **Multi-domain** — additional domain seams + `domains_index.yaml` (the `domain_onboard` flow above is its vocabulary-authoring aid); the YAML baseline extraction deferred under D2. (FR-BR-11/14, FR-XS-21 — all W.)
 - **Metrics dashboard / SQLite** — promote the JSONL ledger to a queryable store + dashboard. (D8 persistence split; FR-MX-*.)
 - **Auto-launch / Claude-only spine convenience** — operator-gesture automation beyond the two-step Generate.
-- **FastAPI / React web UI** — implement Generate behind the P0-locked `UI_INPUT.yaml` contract for non-technical operators + role gating + telemetry surface. **Follow-up (planned):** after TASK-049, expand this bullet into a proper task breakdown (TASK-050+) — UI screens + the FastAPI backend that drives Generate — decomposed against §3.1 and the FR-XS UI requirements, with the standard Depends/Reads/Creates/Acceptance/Fixture anatomy. Scope decision pending: whether it lands in this external-build repo or the VDI-port artifact.
+- **FastAPI / React web UI** — **promoted to Milestone 5A (TASK-050 backend + TASK-051 frontend).** Remaining UI *enhancements* live here: role gating, a richer telemetry/metrics surface, and (separately) auto-launch (below).
 
 ---
 
