@@ -102,7 +102,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 
 **Phase 5 · Milestone 5A — Self-serve run: UI + hosted sources + live connectors** *(PRIORITY)*
 - [x] TASK-050 — Generate backend service (FastAPI): config → `UI_INPUT.yaml` → `generate.py` (G0); status from ledger · `Sonnet`
-- [ ] TASK-051 — React Run Configurator from `PDLC_Configurator.jsx` (5 tabs) → emits §3.1 `UI_INPUT.yaml`; Generate + hand-off · `Sonnet`
+- [x] TASK-051 — React Run Configurator from `PDLC_Configurator.jsx` (5 tabs) → emits §3.1 `UI_INPUT.yaml`; Generate + hand-off · `Sonnet`
 - [ ] TASK-052 — `jpmc_adapters/auth.py` real `resolve_auth` (auth_ref → secret store; bitbucket/sharepoint) · `Sonnet`
 - [ ] TASK-053 — Registry (repo #1) on Bitbucket + hydrate-from-remote at pinned `registry_sha` · `Sonnet`
 - [ ] TASK-054 — Live Bitbucket code-source clone (repo #2) through the resolved auth seam; pin `commit_sha` · `Sonnet`

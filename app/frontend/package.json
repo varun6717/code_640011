@@ -1,0 +1,21 @@
+{
+  "name": "pdlc-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "PDLC Run Configurator (TASK-051) — 5-tab SPA that emits §3.1 UI_INPUT.yaml and calls the Generate backend (TASK-050).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "emit": "node scripts/emit_cli.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.3.6"
+  }
+}
