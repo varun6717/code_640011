@@ -21,3 +21,5 @@ runs/.runs_index.jsonl
 # Frontend (TASK-051) build/install artifacts — reproducible from package.json
 app/frontend/node_modules/
 app/frontend/dist/
+cred.env
+registry_repo/

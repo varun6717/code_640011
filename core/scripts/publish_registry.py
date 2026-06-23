@@ -119,6 +119,54 @@ def collect_subset(manifest: dict, source_root: Path) -> list[tuple[Path, str]]:
     return [(path, rel) for rel, path in sorted(out.items())]
 
 
+def stage_registry(
+    dest: str | Path,
+    *,
+    source_root: str | Path = _REPO_ROOT,
+    manifest_path: str | Path = _DEFAULT_MANIFEST,
+    force: bool = False,
+) -> dict:
+    """Gate on §10, collect the manifest subset, and lay it into ``dest`` as a pushable tree.
+
+    Same content `publish_registry` would push, but written to a local folder instead of a
+    remote — for a manual/offline push (e.g. on the VDI: ``git init`` ``dest``, add the remote,
+    commit, push). ``core/`` and ``overlays/`` land at the ROOT of ``dest`` so the published
+    repo is hydrate-shaped. Raises :class:`PublishBlocked` if the build checks are red.
+    """
+    source_root = Path(source_root)
+    dest = Path(dest)
+    manifest = _load_yaml(Path(manifest_path))
+
+    violations = gate_build_checks(source_root)
+    if violations:
+        raise PublishBlocked(
+            "registry stage blocked — §10 build checks are RED:\n  - " + "\n  - ".join(violations)
+        )
+
+    subset = collect_subset(manifest, source_root)
+    if not subset:
+        raise ValueError("registry manifest resolved to zero files — check include/ trees and docs")
+
+    if dest.exists() and any(dest.iterdir()) and not force:
+        raise FileExistsError(f"stage dest already populated: {dest} (use --force to overwrite)")
+    if dest.exists() and force:
+        for entry in dest.iterdir():
+            shutil.rmtree(entry) if entry.is_dir() else entry.unlink()
+
+    for abs_path, rel in subset:
+        target = dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(abs_path, target)
+
+    return {
+        "staged_to": str(dest),
+        "source_root": str(source_root),
+        "checks": "green",
+        "file_count": len(subset),
+        "published_paths": [rel for _, rel in subset],
+    }
+
+
 def _clear_worktree(clone: Path) -> None:
     """Remove every tracked/working entry except ``.git`` so the published tree is EXACTLY the subset."""
     for entry in clone.iterdir():
@@ -216,14 +264,34 @@ def publish_registry(
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Publish the SHA-pinned registry subset to Bitbucket (repo #1, §2.1).")
-    ap.add_argument("registry_url", help="target registry repo (e.g. git@bitbucket.org:vm1999/registry.git) or a local bare repo path")
+    ap = argparse.ArgumentParser(description="Publish (or stage) the SHA-pinned registry subset for Bitbucket (repo #1, §2.1).")
+    ap.add_argument("registry_url", nargs="?", help="target registry repo (e.g. git@bitbucket.org:vm1999/registry.git) or a local bare repo path; omit when --stage")
+    ap.add_argument("--stage", help="write the registry subset into this folder (pushable tree) instead of pushing to a remote")
     ap.add_argument("--source-root", default=str(_REPO_ROOT), help=f"repo to publish from (default: {_REPO_ROOT})")
     ap.add_argument("--manifest", default=str(_DEFAULT_MANIFEST), help="registry manifest (default: core/registry_manifest.yaml)")
     ap.add_argument("--branch", default="main", help="branch to publish (default: main)")
     ap.add_argument("--message", default="Publish PDLC registry subset", help="commit message")
+    ap.add_argument("--force", action="store_true", help="overwrite a populated --stage folder")
     ap.add_argument("--dry-run", action="store_true", help="gate + collect, report what would publish; no push")
     args = ap.parse_args(argv)
+
+    if args.stage:
+        try:
+            desc = stage_registry(args.stage, source_root=args.source_root,
+                                  manifest_path=args.manifest, force=args.force)
+        except PublishBlocked as exc:
+            print(f"publish_registry.py: {exc}", file=sys.stderr)
+            return 2
+        except (ValueError, FileExistsError, FileNotFoundError, OSError) as exc:
+            print(f"publish_registry.py: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps({k: v for k, v in desc.items() if k != "published_paths"}, ensure_ascii=False, indent=2))
+        print(f"\nStaged {desc['file_count']} files → {desc['staged_to']}  "
+              f"(git init, add remote, commit, push — core/ + overlays/ at the root)", file=sys.stderr)
+        return 0
+
+    if not args.registry_url:
+        ap.error("need a registry_url (or use --stage <dir>)")
 
     try:
         descriptor = publish_registry(
