@@ -246,14 +246,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ui-input", help="path to UI_INPUT.yaml; pulls registry_sha/domain/runtime_tool/working_path")
     ap.add_argument("--registry", help=f"registry path or URL (default: this repo root, {_REPO_ROOT})")
     ap.add_argument("--registry-sha", help="pinned registry commit (overrides UI_INPUT)")
+    ap.add_argument("--registry-ref", help="branch/tag the registry lives on, e.g. feature/pdlc_app (overrides UI_INPUT.registry_ref)")
     ap.add_argument("--domain", help="domain to hydrate (overrides UI_INPUT)")
     ap.add_argument("--runtime-tool", choices=["claude", "copilot"], help="overlay to hydrate (overrides UI_INPUT)")
     ap.add_argument("--dest", help="scaffold destination (default: UI_INPUT.working_path)")
     ap.add_argument("--force", action="store_true", help="overwrite an already-hydrated dest/core")
     args = ap.parse_args(argv)
 
-    registry_sha, domain, runtime_tool, dest = (
-        args.registry_sha, args.domain, args.runtime_tool, args.dest,
+    registry_sha, domain, runtime_tool, dest, registry_ref = (
+        args.registry_sha, args.domain, args.runtime_tool, args.dest, args.registry_ref,
     )
     if args.ui_input:
         import yaml  # local import: only the UI-INPUT path needs YAML
@@ -263,6 +264,7 @@ def main(argv: list[str] | None = None) -> int:
         domain = domain or cfg.get("domain")
         runtime_tool = runtime_tool or cfg.get("runtime_tool")
         dest = dest or cfg.get("working_path")
+        registry_ref = registry_ref or cfg.get("registry_ref")
 
     registry = args.registry or str(_REPO_ROOT)
     missing = [n for n, v in (("registry_sha", registry_sha), ("domain", domain),
@@ -272,7 +274,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         descriptor = hydrate(
-            registry, registry_sha, domain, runtime_tool, dest, force=args.force,
+            registry, registry_sha, domain, runtime_tool, dest, ref=registry_ref or None, force=args.force,
         )
     except (ValueError, FileExistsError, RuntimeError, OSError) as exc:
         print(f"hydrate.py: {exc}", file=sys.stderr)
