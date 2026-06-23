@@ -1,0 +1,39 @@
+# adapter.yaml — the payment_brand pre-processing adapter pack manifest (§6.6.3).
+#
+# This is the swappable DOMAIN SEAM for pre-processing: the generic `source_processor`
+# reads this file to know the run order + routing; it carries no domain knowledge itself.
+# A new domain = "write one more pack"; the core never changes (FR-XS-01).
+#
+# Contract (§6.6.3), enforced by build check §10.5 (TASK-021):
+#   (a) every skill's `emits` ⊆ the domain vocabulary (D5).
+#   (b) the pack collectively produces EVERY `required: true` topic across brd_profile +
+#       frd_profile (a required topic with no producing skill is a build error).
+#   (c) this emit-map agrees, PER TAG, with vocabulary.payment_brand.yaml's `emitted_by`
+#       column (no drift).
+#
+# Run order is per source class: docs_pipeline is ORDERED (pdf_extract runs first — it
+# extracts structure with NO tags; the two taggers run after it). code sources route to
+# the SHARED core skill core/skills/code_map_build.skill.md (code processing never varies
+# by domain, D7) — it is referenced here, not copied into the pack.
+#
+# ── F1 + emit-map reconciliation (TASK-017, V-approved; see vocabulary r2 note) ────────
+# §6.6.3's normative adapter instance drifted from D5/vocabulary on FOUR tags (only
+# mandate/F1 was documented). Reconciled holistically against REALITY:
+#   • Class 1 — adapter under-listed a DOC emitter; vocabulary is right → fixed HERE:
+#       article_summarize.emits gains `mandate` (F1) and `transaction_flow` (vocabulary
+#       lists both as emitted_by article_summarize; §6.6.3 had omitted them).
+#   • Class 2 — vocabulary under-listed code_map_build; the code skill is right → fixed in
+#       vocabulary r2 (card_brand, message_format gained code_map_build). No change here —
+#       code_pipeline already emits them, matching code_map_build.skill.md CODE_MAP_TAGS.
+# After both, all 12 per-tag mappings match and §10.5 passes (verified at TASK-017,
+# re-gated at TASK-021).
+
+domain: payment_brand                # PBI — Payment Brand
+
+docs_pipeline:                       # ORDERED; runs per non-code (document) source
+  - { skill: pdf_extract,        emits: [] }                                              # structural extraction; NO tags
+  - { skill: article_summarize,  emits: [brand_rules, message_format, interchange_fees, reporting, mandate, transaction_flow] }  # +mandate (F1), +transaction_flow — Class 1
+  - { skill: change_type_assess, emits: [mandate, card_brand, routing, certification, compliance_deadline] }
+
+code_pipeline:                       # code sources route to the SHARED core skill (D7); not copied into the pack
+  - { skill: code_map_build,     emits: [routing, settlement, transaction_flow, error_handling, message_format, card_brand] }

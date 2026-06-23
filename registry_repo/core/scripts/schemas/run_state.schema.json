@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "run_state.schema.json",
+  "title": "run_state.json — current run state (TECH_SPEC §3.5, D8a/NFR-08)",
+  "description": "One per run; replaceable (last-write-wins). Makes resume explicit: a session reads this + the existing artifacts and continues from current_stage without redoing `done` stages (§9). Records run progress only — never artifact content (FR-XS-05).",
+  "type": "object",
+  "required": ["run_id", "current_stage", "stages"],
+  "additionalProperties": false,
+  "properties": {
+    "run_id": { "type": "string" },
+    "repo_commit_sha": { "type": "string" },
+    "current_stage": { "$ref": "#/$defs/stage" },
+    "stages": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/stage" },
+      "additionalProperties": { "$ref": "#/$defs/stage_status" }
+    }
+  },
+  "$defs": {
+    "stage": {
+      "enum": ["ingest", "code_map", "brd_authoring", "code_impact",
+               "frd_authoring", "jira_authoring", "jira_push"]
+    },
+    "stage_status": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["pending", "running", "done", "failed"] },
+        "started": { "type": "string" },
+        "completed": { "type": "string" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

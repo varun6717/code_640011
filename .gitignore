@@ -21,5 +21,10 @@ runs/.runs_index.jsonl
 # Frontend (TASK-051) build/install artifacts — reproducible from package.json
 app/frontend/node_modules/
 app/frontend/dist/
+# cred.env: a secret token — NEVER commit
 cred.env
-registry_repo/
+
+# NOTE: registry_repo/ is intentionally NOT ignored — it travels to the VDI as the push-ready
+# registry tree. It is a generated copy of core/ + overlays/ + docs; after ANY change under
+# those, refresh it with `python core/scripts/publish_registry.py --stage registry_repo --force`
+# (the §10-gated rebuild) before committing, or it goes stale.
