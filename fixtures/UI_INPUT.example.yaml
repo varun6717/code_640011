@@ -8,6 +8,11 @@ working_path: /work/pbi/SEAL-12345-routing
 domain: payment_brand               # selects profiles/templates/adapter/vocabulary (UI label "PBI")
 runtime_tool: copilot               # claude | copilot  (FR-XS-06)
 registry_sha: 7d2e9a1               # resolved & pinned at Generate (FR-XS-10, NFR-01)
+# registry_url: "https://bitbucket.jpmc.net/scm/pbi/cmspbiaiml-commerce-interchange-app.git"
+#                                   # OPTIONAL — the live registry repo to hydrate from. Omit to
+#                                   # use the env / repo-root registry (external build).
+# registry_ref: feature/pdlc_app    # OPTIONAL branch/tag the registry lives on; hydrate.py clones
+#                                   # it so the pinned SHA is reachable (one-repo/two-feature layout).
 
 # project identity / governance metadata — config only; feeds traceability + later Jira controls
 project_metadata:
@@ -36,6 +41,9 @@ sources:
   - type: bitbucket                 # code source → git clone into repo/ for code_map
     seal_id: SEAL-12345
     repo_url: "https://bitbucket.jpmc.net/scm/pbi/merchant-routing-svc.git"
+    # ref: feature/c_repo           # OPTIONAL branch/tag/commit — clone.py pins to it (--ref);
+    #                               # omit to clone the repo's default branch. Needed for a
+    #                               # one-repo/two-feature layout (code on a feature branch).
     auth_ref: jpmc_adapters:bitbucket
 
 # gate threshold — soft-gate default (§9); per-gate override optional

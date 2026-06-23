@@ -79,6 +79,13 @@ def validate_ui_input(config: Any) -> list[str]:
             f"runtime_tool — must be one of {list(_RUNTIME_TOOLS)} (FR-XS-06); got {runtime_tool!r}"
         )
 
+    # registry_url / registry_ref are OPTIONAL: when absent, Generate falls back to the env /
+    # repo-root registry. When present they must be usable strings (registry_ref = the branch/tag
+    # the registry lives on, for a one-repo/two-feature layout).
+    for field in ("registry_url", "registry_ref"):
+        if field in config and not _is_nonempty_str(config[field]):
+            errors.append(f"{field} — must be a non-empty string when provided (§3.1)")
+
     errors.extend(_validate_project_metadata(config.get("project_metadata")))
     errors.extend(_validate_frame(config.get("frame")))
     errors.extend(_validate_sources(config.get("sources")))

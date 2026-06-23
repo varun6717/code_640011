@@ -39,13 +39,26 @@ export function buildConfig(form, { registrySha = DEFAULT_REGISTRY_SHA } = {}) {
   }
 
   // Bitbucket code repo sources → type:bitbucket (clone.py, TASK-054). seal + repo_url.
+  // `ref` (branch/tag/commit) is optional — emitted only when given, so a repo that lives on a
+  // feature branch (e.g. one-repo/two-feature layouts) is clone-pinned to it (clone.py --ref).
   for (const it of form.code ?? []) {
     const repo_url = trimmed(it.url);
     const seal_id = trimmed(it.seal);
+    const ref = trimmed(it.branch);
     if (repo_url || seal_id) {
-      sources.push({ type: "bitbucket", seal_id, repo_url, auth_ref: AUTH_REF.bitbucket });
+      const src = { type: "bitbucket", seal_id, repo_url };
+      if (ref) src.ref = ref;
+      src.auth_ref = AUTH_REF.bitbucket;
+      sources.push(src);
     }
   }
+
+  // Registry repo is optional in the UI: when given, the operator points Generate at a live
+  // Bitbucket registry (URL) and, optionally, the branch it lives on (registry_ref). When blank,
+  // Generate falls back to the env / repo-root registry (external build). Emitted only when set,
+  // so a blank form stays byte-identical to the pre-feature contract.
+  const registry_url = trimmed(form.registry_url);
+  const registry_ref = trimmed(form.registry_ref);
 
   const config = {
     schema_version: 1,
@@ -53,6 +66,8 @@ export function buildConfig(form, { registrySha = DEFAULT_REGISTRY_SHA } = {}) {
     domain: trimmed(form.domain),
     runtime_tool: trimmed(form.runtime_tool),
     registry_sha: registrySha,
+    ...(registry_url ? { registry_url } : {}),
+    ...(registry_ref ? { registry_ref } : {}),
     project_metadata: {
       project_name: trimmed(form.project_name),
       application_name: trimmed(form.application_name),

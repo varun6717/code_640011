@@ -259,18 +259,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--force", action="store_true", help="re-clone even if repo/ is already populated (D8b override)")
     args = ap.parse_args(argv)
 
-    repo_url, seal_id, auth_ref = args.repo_url, args.seal_id, args.auth_ref
+    repo_url, seal_id, auth_ref, ref = args.repo_url, args.seal_id, args.auth_ref, args.ref
     if args.ui_input:
         entry = _source_from_ui_input(args.ui_input)
         repo_url = repo_url or entry.get("repo_url")
         seal_id = seal_id or entry.get("seal_id")
         auth_ref = auth_ref or entry.get("auth_ref")
+        ref = ref or entry.get("ref")          # optional branch/tag/commit from the UI source entry
     if not repo_url:
         ap.error("need --repo-url or --ui-input with a type:bitbucket source")
 
     try:
         descriptor = clone_repo(
-            repo_url, args.dest, ref=args.ref, seal_id=seal_id, auth_ref=auth_ref, force=args.force,
+            repo_url, args.dest, ref=ref, seal_id=seal_id, auth_ref=auth_ref, force=args.force,
         )
     except (RuntimeError, FileExistsError, ValueError, _auth.AuthResolutionError) as exc:
         print(f"clone.py: {exc}", file=sys.stderr)

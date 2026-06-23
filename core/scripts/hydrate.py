@@ -142,6 +142,7 @@ def hydrate(
     runtime_tool: str,
     dest: str | Path,
     *,
+    ref: str | None = None,
     force: bool = False,
 ) -> dict:
     """Hydrate the run scaffold at ``dest`` from ``registry`` pinned at ``registry_sha``.
@@ -150,6 +151,11 @@ def hydrate(
     ``core/`` (domain-pruned) + ``overlays/<runtime_tool>/`` into ``dest``. Returns a
     descriptor recording the verified SHA and the sorted list of copied files. A local
     non-git ``registry`` is copied directly (SHA unverified, noted) — external-build only.
+
+    ``ref`` (optional branch/tag) lands the shallow clone on a specific branch — needed when
+    the registry lives on a feature branch (one-repo/two-feature layout), so the pinned SHA is
+    reachable. ``registry`` may be a remote URL (``https://…`` / ``git@…``) or a local path; a
+    URL is passed to ``git clone`` verbatim (never ``Path``-normalized — that collapses ``//``).
     """
     if runtime_tool not in ("claude", "copilot"):
         raise ValueError(f"runtime_tool must be 'claude' or 'copilot' (got {runtime_tool!r})")
@@ -159,19 +165,26 @@ def hydrate(
     if dest_core.exists() and any(dest_core.iterdir()) and not force:
         raise FileExistsError(f"scaffold already hydrated: {dest_core} exists (use force=True to overwrite)")
 
-    registry = Path(registry)
+    registry_str = str(registry)
+    is_remote = "://" in registry_str or registry_str.startswith("git@")
+    local = None if is_remote else Path(registry)   # URLs stay strings — Path() collapses '//'
     note: str | None = None
     tmp: Path | None = None
     try:
-        if registry.is_dir() and not _is_git_source(registry):
+        if local is not None and local.is_dir() and not _is_git_source(local):
             # External-build convenience: a local non-git registry — copy current tree.
-            source_root = registry
+            source_root = local
             verified_sha = None
             note = "local non-git registry copied directly (external build); registry_sha unverified"
         else:
+            clone_src = registry_str if is_remote else str(local)
             tmp = Path(tempfile.mkdtemp(prefix="hydrate-"))
             checkout = tmp / "registry"
-            _git(["clone", "--depth", "1", str(registry), str(checkout)])
+            clone_cmd = ["clone", "--depth", "1"]
+            if ref:
+                clone_cmd += ["--branch", ref]   # land the shallow clone on the registry's branch
+            clone_cmd += [clone_src, str(checkout)]
+            _git(clone_cmd)
             try:
                 _git(["checkout", registry_sha], cwd=checkout)
             except RuntimeError:

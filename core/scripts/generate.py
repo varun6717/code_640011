@@ -186,12 +186,18 @@ def generate(
     if not str(dest):
         raise ValueError("no working_path: set it in UI_INPUT.yaml or pass working_path=")
 
-    registry = Path(registry) if registry else hydrate._REPO_ROOT
+    # Registry source precedence: explicit param (env / external-build override) > UI_INPUT's
+    # registry_url (the operator-entered Bitbucket repo) > repo root (external build). A URL is
+    # kept as a raw string — hydrate detects remote-vs-local; Path() would collapse '//'.
+    registry = registry or ui.get("registry_url") or hydrate._REPO_ROOT
+    registry_ref = ui.get("registry_ref") or None   # optional branch/tag for the registry repo
 
     dest.mkdir(parents=True, exist_ok=True)
 
     # 1) Hydrate the SHA-pinned registry slice → core/ (domain-pruned) + overlays/<tool>/.
-    hydrate_desc = hydrate.hydrate(registry, registry_sha, domain, runtime_tool, dest, force=force)
+    hydrate_desc = hydrate.hydrate(
+        registry, registry_sha, domain, runtime_tool, dest, ref=registry_ref, force=force
+    )
 
     # 2) Lift the overlay wrappers + prompts to the run root (§2.2), drop the overlays/ tree.
     placed = _place_overlay(dest, runtime_tool)

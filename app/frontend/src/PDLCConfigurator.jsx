@@ -192,9 +192,10 @@ export default function PDLCConfigurator(){
 
   const [f,setF]=useState({
     working_path:"", domain:"payment_brand", runtime_tool:"copilot",
+    registry_url:"", registry_ref:"",
     project_name:"", application_name:"", lob:"", requestor:"", requestor_sid:"",
     intent:"", scope_hints:["routing"], stakeholders:[], compliance_deadline:"",
-    pdf:[{url:""}], code:[{seal:"",url:""}], confluence:[{url:""}], lucid:[{url:""}],
+    pdf:[{url:""}], code:[{seal:"",url:"",branch:""}], confluence:[{url:""}], lucid:[{url:""}],
     score_threshold:"85",
   });
   // Config is immutable after Generate (FR-XS-16): any edit discards the generated scaffold,
@@ -328,7 +329,7 @@ export default function PDLCConfigurator(){
             <SourceRow type="sharepoint" name="SharePoint — PDF" ph="https://sharepoint.jpmc.net/sites/PBI/Specs"
               items={f.pdf} onItem={(i,k,v)=>setItem("pdf",i,k,v)} onAdd={()=>addItem("pdf",{url:""})} onRemove={i=>rmItem("pdf",i)}/>
             <SourceRow type="bitbucket" name="Bitbucket — Code Repo (Stratus)" bitbucket ph="https://bitbucket.jpmc.net/scm/pbi/merchant-routing-svc.git"
-              items={f.code} onItem={(i,k,v)=>setItem("code",i,k,v)} onAdd={()=>addItem("code",{seal:"",url:""})} onRemove={i=>rmItem("code",i)}/>
+              items={f.code} onItem={(i,k,v)=>setItem("code",i,k,v)} onAdd={()=>addItem("code",{seal:"",url:"",branch:""})} onRemove={i=>rmItem("code",i)}/>
             <SourceRow type="confluence" name="Confluence" ph="https://confluence.jpmc.net/display/PBI/Discover"
               items={f.confluence} onItem={(i,k,v)=>setItem("confluence",i,k,v)} onAdd={()=>addItem("confluence",{url:""})} onRemove={i=>rmItem("confluence",i)}
               deferred badge="5B — deferred"/>
@@ -356,7 +357,13 @@ export default function PDLCConfigurator(){
                     ))}
                   </div>
                 </Field>
-                <Field label="Registry (Agentic Repo)" hint="fixed location · commit resolved & pinned at Generate">
+                <Field label="Registry Repo URL" hint="→ registry_url · optional · blank = repo-root/env registry (external build)">
+                  <Text value={f.registry_url} onChange={v=>set("registry_url",v)} placeholder="https://bitbucket.jpmc.net/scm/pbi/cmspbiaiml-commerce-interchange-app.git"/>
+                </Field>
+                <Field label="Registry Branch / ref" hint="→ registry_ref · optional · the branch the registry lives on, e.g. feature/pdlc_app">
+                  <Text value={f.registry_ref} onChange={v=>set("registry_ref",v)} placeholder="feature/pdlc_app · default branch if blank"/>
+                </Field>
+                <Field label="Registry Commit" hint="resolved & pinned at Generate">
                   <div className="authref" style={{padding:"4px 0",marginTop:0}}>
                     {result
                       ? <b>registry @ {result.descriptor.registry_sha} · pinned{result.descriptor.registry_sha_verified===false?" (unverified — external build)":""}</b>
@@ -432,6 +439,10 @@ function SourceRow({type,name,bitbucket,ph,items,onItem,onAdd,onRemove,deferred=
                 {!deferred && items.length>1 && <button className="x" title="remove" onClick={()=>onRemove(i)}>×</button>}
               </div>
             </div>
+            {bitbucket && <div>
+              <label className="flabel">Branch / ref · optional</label>
+              <div className="tinput"><input value={it.branch||""} placeholder="feature/c_repo · default branch if blank" disabled={deferred} onChange={e=>onItem(i,"branch",e.target.value)}/></div>
+            </div>}
           </div>
         ))}
         {deferred
@@ -459,6 +470,8 @@ function buildYaml(f,generated){
   L.push(`${k("domain:")} ${v(f.domain)}`);
   L.push(`${k("runtime_tool:")} ${v(f.runtime_tool)}`);
   L.push(`${k("registry_sha:")} ${generated?s("7d2e9a1"):atGen}`);
+  if(f.registry_url&&f.registry_url.trim())L.push(`${k("registry_url:")} ${v(f.registry_url.trim())}`);
+  if(f.registry_ref&&f.registry_ref.trim())L.push(`${k("registry_ref:")} ${v(f.registry_ref.trim())}`);
   L.push("");
   L.push(`${k("project_metadata:")}`);
   L.push(`  ${k("project_name:")} ${v(f.project_name)}`);
@@ -477,7 +490,7 @@ function buildYaml(f,generated){
   L.push(`${k("sources:")}`);
   let any=false;
   f.pdf.forEach(it=>{if(it.url){any=true;L.push(`  - ${k("type:")} ${v("sharepoint")}`);L.push(`    ${k("url:")} ${v(it.url)}`);L.push(`    ${k("auth_ref:")} ${s("jpmc_adapters:sharepoint")}`);}});
-  f.code.forEach(it=>{if(it.url||it.seal){any=true;L.push(`  - ${k("type:")} ${v("bitbucket")}`);L.push(`    ${k("seal_id:")} ${v(it.seal)}`);L.push(`    ${k("repo_url:")} ${v(it.url)}`);L.push(`    ${k("auth_ref:")} ${s("jpmc_adapters:bitbucket")}`);}});
+  f.code.forEach(it=>{if(it.url||it.seal){any=true;L.push(`  - ${k("type:")} ${v("bitbucket")}`);L.push(`    ${k("seal_id:")} ${v(it.seal)}`);L.push(`    ${k("repo_url:")} ${v(it.url)}`);if(it.branch&&it.branch.trim())L.push(`    ${k("ref:")} ${v(it.branch.trim())}`);L.push(`    ${k("auth_ref:")} ${s("jpmc_adapters:bitbucket")}`);}});
   f.confluence.forEach(it=>{if(it.url){any=true;L.push(`  - ${k("type:")} ${v("confluence")}`);L.push(`    ${k("url:")} ${v(it.url)}`);L.push(`    ${k("auth_ref:")} ${s("jpmc_adapters:confluence")}`);}});
   f.lucid.forEach(it=>{if(it.url){any=true;L.push(`  - ${k("type:")} ${v("lucid")}`);L.push(`    ${k("url:")} ${v(it.url)}`);L.push(`    ${k("auth_ref:")} ${s("jpmc_adapters:lucid")}`);}});
   if(!any)L.push(`  <span class="yc"># add sources in Stage 3</span>`);
