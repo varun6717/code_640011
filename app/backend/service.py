@@ -106,6 +106,11 @@ def run_generate(
     reproduces it byte-for-byte.
     """
     ts = ts or _now_iso()
+    # Registry source: an explicit request value wins; else PDLC_REGISTRY (deployment default);
+    # else None → generate.py falls back to the repo root. TASK-053 replaces this with live
+    # Bitbucket resolution; the env is the external-build / local-demo convenience until then.
+    registry = registry or os.environ.get("PDLC_REGISTRY")
+
     cfg = dict(config)  # shallow copy — we may stamp run_id without mutating the caller's dict
     if not cfg.get("run_id"):
         cfg["run_id"] = _assign_run_id(ts)
