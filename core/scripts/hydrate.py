@@ -73,6 +73,21 @@ def _git(args: list[str], cwd: Path | None = None) -> str:
     return proc.stdout.strip()
 
 
+def resolve_remote_sha(url: str, ref: str | None = None) -> str:
+    """Pin the current tip of a remote registry branch (TASK-053): ``git ls-remote`` → SHA.
+
+    ``ref`` is the branch/tag the registry lives on (e.g. ``feature/pdlc_app``); ``None``
+    resolves the remote's default ``HEAD``. Used at Generate so the operator supplies repo +
+    branch and the ``registry_sha`` is resolved automatically, never hand-entered. Raises if the
+    ref does not resolve — a live registry that cannot be pinned fails loud (FR-XS-10/NFR-01).
+    """
+    target = ref or "HEAD"
+    out = _git(["ls-remote", url, target])
+    if not out:
+        raise RuntimeError(f"registry ref not found: {url}@{target} (ls-remote returned no match)")
+    return out.split()[0]
+
+
 def _is_git_source(path: Path) -> bool:
     """True if ``path`` is a git repo git can clone from — a work tree (has ``.git``) OR a
     **bare** repo (`git init --bare`, the shape a local "Bitbucket" remote takes).

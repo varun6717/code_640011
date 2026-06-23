@@ -192,6 +192,13 @@ def generate(
     registry = registry or ui.get("registry_url") or hydrate._REPO_ROOT
     registry_ref = ui.get("registry_ref") or None   # optional branch/tag for the registry repo
 
+    # Live registry → pin the branch tip at Generate (TASK-053): the operator supplies repo +
+    # branch and registry_sha is resolved via ls-remote, never hand-entered. A local / external-
+    # build registry keeps the UI_INPUT pin (the placeholder the UI emits).
+    registry_str = str(registry)
+    if "://" in registry_str or registry_str.startswith("git@"):
+        registry_sha = hydrate.resolve_remote_sha(registry_str, registry_ref)
+
     dest.mkdir(parents=True, exist_ok=True)
 
     # 1) Hydrate the SHA-pinned registry slice → core/ (domain-pruned) + overlays/<tool>/.
