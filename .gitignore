@@ -14,3 +14,6 @@ scratch_*.py
 # Run-workspace cloned repos: reproducible by re-cloning the source (clone.py); not source state
 runs/*/repo/
 runs/*/.clone_descriptor.json
+
+# Generate backend runs index (TASK-050): a run_id→working_path pointer log rebuilt per env
+runs/.runs_index.jsonl

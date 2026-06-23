@@ -101,7 +101,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-049 — End-to-end acceptance: PDF + repo → BRD vN → FRD; flag loop + G1 reopen; `build_checks.py` green · `Opus`
 
 **Phase 5 · Milestone 5A — Self-serve run: UI + hosted sources + live connectors** *(PRIORITY)*
-- [ ] TASK-050 — Generate backend service (FastAPI): config → `UI_INPUT.yaml` → `generate.py` (G0); status from ledger · `Sonnet`
+- [x] TASK-050 — Generate backend service (FastAPI): config → `UI_INPUT.yaml` → `generate.py` (G0); status from ledger · `Sonnet`
 - [ ] TASK-051 — React Run Configurator from `PDLC_Configurator.jsx` (5 tabs) → emits §3.1 `UI_INPUT.yaml`; Generate + hand-off · `Sonnet`
 - [ ] TASK-052 — `jpmc_adapters/auth.py` real `resolve_auth` (auth_ref → secret store; bitbucket/sharepoint) · `Sonnet`
 - [ ] TASK-053 — Registry (repo #1) on Bitbucket + hydrate-from-remote at pinned `registry_sha` · `Sonnet`

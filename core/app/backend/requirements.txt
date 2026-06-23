@@ -1,0 +1,7 @@
+# Generate backend service (TASK-050) — install into the repo .venv:
+#   .venv/bin/pip install -r core/app/backend/requirements.txt
+# Direct deps only; transitive deps (starlette, anyio, pydantic-core, …) pin themselves.
+fastapi==0.138.0
+uvicorn[standard]==0.49.0
+httpx==0.28.1          # FastAPI TestClient (the offline proof harness) + future live connectors
+PyYAML==6.0.3          # UI_INPUT (de)serialization — shared with core/scripts
