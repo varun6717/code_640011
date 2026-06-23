@@ -67,17 +67,18 @@ def main() -> int:
         check((dest / "UI_INPUT.yaml").is_file(), "UI_INPUT.yaml written (immutable run identity)")
         check((dest / "UI_INPUT.yaml").read_text() == _LOCKED_UI_INPUT.read_text(),
               "UI_INPUT.yaml copied verbatim (byte-identical to the locked input)")
-        check((dest / "copilot-instructions.md").is_file(),
-              "instruction file copilot-instructions.md generated (runtime_tool=copilot, §6.3)")
+        check((dest / ".github" / "copilot-instructions.md").is_file(),
+              "instruction file .github/copilot-instructions.md generated (runtime_tool=copilot, §6.3)")
         check(not (dest / "CLAUDE.md").exists(), "no CLAUDE.md (the unselected tool's file is absent)")
         check(not (dest / "overlays").exists(), "overlays/ lifted to run root and removed (§2.2)")
 
         agents = sorted(p.name for p in dest.glob("*.agent.md"))
         check(len(agents) == 8, f"8 copilot agent wrappers at run root (got {len(agents)})")
 
-        prompts = sorted(p.stem for p in (dest / "prompts").glob("*.md"))
+        # copilot prompts land at .github/prompts/<p>.prompt.md (GitHub Copilot's discovered layout)
+        prompts = sorted(p.name[:-len(".prompt.md")] for p in (dest / ".github" / "prompts").glob("*.prompt.md"))
         check(prompts == ["start-brd", "start-frd", "start-jira"],
-              f"prompts/ has start-brd/frd/jira (got {prompts})")
+              f".github/prompts/ has start-brd/frd/jira (got {prompts})")
 
         check((dest / "core" / "overlay_manifest.yaml").is_file(), "core/ hydrated")
         # domain seam pruned — only payment_brand profiles/templates hydrated.

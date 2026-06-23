@@ -140,8 +140,8 @@ def main() -> int:
         desc = body.get("descriptor", {})
         check(desc.get("checkpoint") == "G0" and desc.get("ran_workflow") is False,
               "scaffold at G0, ran_workflow=False (config + Generate only, FR-XS-09)")
-        check((dest / "UI_INPUT.yaml").is_file() and (dest / "copilot-instructions.md").is_file(),
-              "§2.2 workspace scaffolded (UI_INPUT.yaml + instruction file)")
+        check((dest / "UI_INPUT.yaml").is_file() and (dest / ".github" / "copilot-instructions.md").is_file(),
+              "§2.2 workspace scaffolded (UI_INPUT.yaml + .github/copilot-instructions.md)")
         written = yaml.safe_load((dest / "UI_INPUT.yaml").read_text(encoding="utf-8"))
         check(validation.validate_ui_input(written) == [],
               "written UI_INPUT.yaml is itself §3.1-valid")

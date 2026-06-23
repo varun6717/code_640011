@@ -113,8 +113,8 @@ def main() -> int:
         check(desc_api.get("checkpoint") == "G0" and desc_api.get("ran_workflow") is False,
               "descriptor marks G0, ran_workflow=False (config + Generate only, FR-XS-09)")
         check((api_dest / "UI_INPUT.yaml").is_file(), "UI_INPUT.yaml written into the workspace")
-        check((api_dest / "copilot-instructions.md").is_file(),
-              "instruction file generated (runtime_tool=copilot, §6.3)")
+        check((api_dest / ".github" / "copilot-instructions.md").is_file(),
+              "instruction file generated at .github/copilot-instructions.md (runtime_tool=copilot, §6.3)")
         check((api_dest / "ledger" / "run_state.json").is_file(), "ledger initialized")
         check((api_dest / "context_set").is_dir() and not any((api_dest / "context_set").iterdir()),
               "context_set/ present and empty (no ingest — Generate stopped at G0)")

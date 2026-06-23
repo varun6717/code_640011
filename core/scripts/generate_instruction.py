@@ -54,7 +54,10 @@ _TAIL = {
         ),
     },
     "copilot": {
-        "instruction_file": "copilot-instructions.md",
+        # GitHub Copilot only auto-loads repo instructions from .github/copilot-instructions.md
+        # (root is ignored) — empirically confirmed on the VDI. The .github/ prefix is the
+        # relative write path under the run root; generate.py mkdirs the parent.
+        "instruction_file": ".github/copilot-instructions.md",
         "launch": "agent_mode",
         "start_gesture": (
             "open VS Code **Copilot agent mode** at the run working path and run the `start-brd` "

@@ -149,8 +149,12 @@ def _check_overlay(
                                  f"manifest user_invocable={role.get('user_invocable')}, "
                                  f"wrapper={fm.get('user_invocable')}"))
 
+    # Per-tool prompt location/ext from the manifest (claude: prompts/<p>.md;
+    # copilot: .github/prompts/<p>.prompt.md). Defaults preserve the legacy claude layout.
+    prompts_dir = str(tool_cfg.get("prompts_dir", "prompts"))
+    prompt_ext = str(tool_cfg.get("prompt_ext", ".md"))
     for p in prompt_files:
-        pp = overlay_root / "prompts" / f"{p}.md"
+        pp = overlay_root / prompts_dir / f"{p}{prompt_ext}"
         if not pp.exists():
             out.append(Violation(tool, p, "missing_prompt",
                                  f"no prompt file at {pp.relative_to(overlay_root.parent.parent)}"))

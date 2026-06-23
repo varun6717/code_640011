@@ -219,7 +219,9 @@ def generate(
     template = (dest / "core" / "instruction_file.template.md").read_text(encoding="utf-8")
     manifest = _load_yaml(dest / "core" / "overlay_manifest.yaml")
     instruction_file, content = render_instruction_file(ui, manifest, template)
-    (dest / instruction_file).write_text(content, encoding="utf-8")
+    instr_out = dest / instruction_file
+    instr_out.parent.mkdir(parents=True, exist_ok=True)   # copilot writes under .github/
+    instr_out.write_text(content, encoding="utf-8")
 
     # 5) Initialize the ledger (telemetry.jsonl, run_state.json @ ingest/pending, decisions.jsonl).
     ledger.init_ledger(dest / "ledger", run_id=run_id)
