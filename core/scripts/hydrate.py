@@ -73,6 +73,20 @@ def _git(args: list[str], cwd: Path | None = None) -> str:
     return proc.stdout.strip()
 
 
+def _is_git_source(path: Path) -> bool:
+    """True if ``path`` is a git repo git can clone from — a work tree (has ``.git``) OR a
+    **bare** repo (`git init --bare`, the shape a local "Bitbucket" remote takes).
+
+    A bare repo has no ``.git`` subdir; its git internals (``HEAD``, ``objects/``, ``refs/``)
+    sit at the top level. Without this, a bare remote misclassifies as a "local non-git
+    registry" and takes the unverified direct-copy path — wrong for a real remote (TASK-053
+    requires the *verified* clone+checkout path; FR-XS-10/NFR-01).
+    """
+    if (path / ".git").exists():
+        return True
+    return (path / "HEAD").is_file() and (path / "objects").is_dir() and (path / "refs").is_dir()
+
+
 def _is_skipped(rel: Path) -> bool:
     """True if any path part is a skipped name, or the file has a skipped suffix."""
     if any(part in _SKIP_NAMES for part in rel.parts):
@@ -149,7 +163,7 @@ def hydrate(
     note: str | None = None
     tmp: Path | None = None
     try:
-        if registry.is_dir() and not (registry / ".git").exists():
+        if registry.is_dir() and not _is_git_source(registry):
             # External-build convenience: a local non-git registry — copy current tree.
             source_root = registry
             verified_sha = None

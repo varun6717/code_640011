@@ -104,7 +104,7 @@ Context will get large. **You may start a fresh chat at any 🔁 phase boundary.
 - [x] TASK-050 — Generate backend service (FastAPI): config → `UI_INPUT.yaml` → `generate.py` (G0); status from ledger · `Sonnet`
 - [x] TASK-051 — React Run Configurator from `PDLC_Configurator.jsx` (5 tabs) → emits §3.1 `UI_INPUT.yaml`; Generate + hand-off · `Sonnet`
 - [x] TASK-052 — `jpmc_adapters/auth.py` real `resolve_auth` (auth_ref → secret store; bitbucket/sharepoint) · `Sonnet`
-- [ ] TASK-053 — Registry (repo #1) on Bitbucket + hydrate-from-remote at pinned `registry_sha` · `Sonnet`
+- [x] TASK-053 — Registry (repo #1) on Bitbucket + hydrate-from-remote at pinned `registry_sha` · `Sonnet`
 - [ ] TASK-054 — Live Bitbucket code-source clone (repo #2) through the resolved auth seam; pin `commit_sha` · `Sonnet`
 - [ ] TASK-055 — `ingest_sharepoint.py` — SharePoint PDF connector (source-type-keyed; same descriptor) · `Sonnet`
 - [ ] TASK-056 — Self-serve acceptance: UI → Generate → VS Code Claude Code/Copilot → BRD/FRD · `Opus`
