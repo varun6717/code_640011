@@ -727,7 +727,7 @@ connectors + the auth seam are built **in this repo**; the UI writes the URLs/lo
 - **Phase:** P5-A · **Depends on:** TASK-031 (`generate.py`), TASK-048 (`build_checks.py`).
 - **Model:** Sonnet — a service wrapper around an existing deterministic CLI; no new judgment.
 - **Reads:** `docs/TECH_SPEC.md` §3.1 (UI_INPUT contract), §6.3 (instruction gen), Appendix B (hydrate); `core/scripts/generate.py` docstring.
-- **Creates / edits:** `core/app/backend/` (FastAPI) — `POST /generate` (config → `UI_INPUT.yaml` → `generate.py` → G0 descriptor + checklist + scaffold path), `GET /runs/{id}/status` (reads `run_state.json` + `telemetry.jsonl`), `GET /runs/{id}/ui_input`.
+- **Creates / edits:** `app/backend/` (FastAPI) — `POST /generate` (config → `UI_INPUT.yaml` → `generate.py` → G0 descriptor + checklist + scaffold path), `GET /runs/{id}/status` (reads `run_state.json` + `telemetry.jsonl`), `GET /runs/{id}/ui_input`.
 - **Do:** Validate posted config against §3.1; write `UI_INPUT.yaml`; invoke `generate.py` (registry from config); return the G0 descriptor — **no agent run** (Generate only, FR-XS-09).
 - **Acceptance:** valid config → `UI_INPUT.yaml` written + workspace scaffolded + G0 descriptor (`ran_workflow:false`); invalid config → 422 naming the failing field; status endpoint mirrors the ledger.
 - **Fixture / proof:** replay `fixtures/UI_INPUT.example.yaml` fields through the API → byte-equal `UI_INPUT.yaml` + same descriptor as the CLI.
@@ -737,7 +737,7 @@ connectors + the auth seam are built **in this repo**; the UI writes the URLs/lo
 - **Phase:** P5-A · **Depends on:** TASK-050, TASK-002 (locked `UI_INPUT` contract), `docs/design/PDLC_Configurator.jsx`.
 - **Model:** Sonnet — port a complete mockup to a working app; screens + `UI_INPUT` emit are already designed.
 - **Reads:** `docs/design/PDLC_Configurator.jsx` (the 5 tabs + the `UI_INPUT` preview), `docs/TECH_SPEC.md` §3.1, `docs/REQUIREMENTS.md` FR-XS-06.
-- **Creates / edits:** `core/app/frontend/` — the 5-tab configurator (IDE Repo Initializer · Domain · Project & Requirement · Artifact Inventory · Generator).
+- **Creates / edits:** `app/frontend/` — the 5-tab configurator (IDE Repo Initializer · Domain · Project & Requirement · Artifact Inventory · Generator).
 - **Do:** Realize the mockup as a working SPA. **Artifact Inventory** collects sources (SharePoint PDF URLs, Bitbucket code `repo_url`+`seal_id`, the registry location) → §3.1 `UI_INPUT.yaml`. **Generator** calls `POST /generate`, shows G0 + the **manual hand-off** steps (open VS Code Claude Code/Copilot; the UI does not start the agent).
 - **Acceptance:** a non-technical operator completes all 5 tabs → Generate → workspace scaffolded; emitted `UI_INPUT.yaml` conforms to §3.1; the `runtime_tool` switch (claude|copilot) works (FR-XS-06); config immutable after Generate (re-config = new run).
 - **Fixture / proof:** a click-through producing a `UI_INPUT.yaml` matching the example contract.

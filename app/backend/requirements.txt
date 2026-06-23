@@ -1,5 +1,5 @@
 # Generate backend service (TASK-050) — install into the repo .venv:
-#   .venv/bin/pip install -r core/app/backend/requirements.txt
+#   .venv/bin/pip install -r app/backend/requirements.txt
 # Direct deps only; transitive deps (starlette, anyio, pydantic-core, …) pin themselves.
 fastapi==0.138.0
 uvicorn[standard]==0.49.0

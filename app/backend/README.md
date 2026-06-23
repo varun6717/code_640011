@@ -36,8 +36,8 @@ filesystem + subprocess plumbing that reuses the existing units (`generate`, `hy
 ## Run
 
 ```bash
-.venv/bin/pip install -r core/app/backend/requirements.txt
-.venv/bin/uvicorn core.app.backend.app:app --reload      # run from the repo root
+.venv/bin/pip install -r app/backend/requirements.txt
+.venv/bin/uvicorn app.backend.app:app --reload      # run from the repo root
 ```
 
 ## Runs index

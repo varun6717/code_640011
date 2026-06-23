@@ -11,7 +11,7 @@ Endpoints (TASK-050):
   GET  /runs/{id}/status    run_state.json + telemetry.jsonl (mirrors the ledger)
   GET  /runs/{id}/ui_input  the immutable run config for the run
 
-Run:  uvicorn core.app.backend.app:app --reload    (deps: core/app/backend/requirements.txt)
+Run:  uvicorn app.backend.app:app --reload    (deps: app/backend/requirements.txt)
 """
 from __future__ import annotations
 

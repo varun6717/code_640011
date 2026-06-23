@@ -2,7 +2,7 @@
 """verify_backend.py — TASK-050 proof: the Generate backend is a faithful CLI wrapper.
 
 Replays the P0-locked ``fixtures/UI_INPUT.example.yaml`` *fields* through the FastAPI
-service (``core/app/backend/app.py``) via the in-process ``TestClient`` (offline, no socket)
+service (``app/backend/app.py``) via the in-process ``TestClient`` (offline, no socket)
 and asserts the TASK-050 acceptance:
 
   * valid config  → ``UI_INPUT.yaml`` written + §2.2 workspace scaffolded + G0 descriptor
@@ -31,7 +31,7 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "scripts"))
-sys.path.insert(0, str(_REPO_ROOT))  # for `core.app.backend` package import
+sys.path.insert(0, str(_REPO_ROOT))  # for `app.backend` package import
 
 import yaml  # noqa: E402
 
@@ -93,7 +93,7 @@ def main() -> int:
         # Import AFTER PDLC_RUNS_INDEX is set; the service reads it at call time anyway.
         from fastapi.testclient import TestClient  # noqa: E402
 
-        from core.app.backend import app as backend_app  # noqa: E402
+        from app.backend import app as backend_app  # noqa: E402
         import generate  # noqa: E402
 
         client = TestClient(backend_app.app)

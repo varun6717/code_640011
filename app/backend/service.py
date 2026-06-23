@@ -24,7 +24,7 @@ import yaml
 
 # The deterministic units (generate/ledger/telemetry) live in core/scripts; put it on the
 # path so importing the service from anywhere (app, proof, REPL) resolves them.
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 _SCRIPTS = _REPO_ROOT / "core" / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
