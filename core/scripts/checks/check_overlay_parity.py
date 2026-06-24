@@ -20,8 +20,9 @@ or divergent wrapper fails the build loudly (FR-XS-20).
             assert prompts/<p> exists in tool's overlay
     FAIL → name the missing role/prompt and the overlay.
 
-``overlay_manifest.yaml`` is the D9-normative source of truth (8 roles, 3 prompt files,
-per-tool launch), reproduced unchanged from REQUIREMENTS D9. Per-tool wrapper paths are
+``overlay_manifest.yaml`` is the D9-normative source of truth (8 roles, 4 prompt files —
+``start-ingest`` + the three stage prompts, per-tool launch), reproduced unchanged from
+REQUIREMENTS D9. Per-tool wrapper paths are
 derived from the manifest itself: ``agents_dir`` (claude → ``<dir>/<role>.md``) or
 ``agents_glob`` (copilot → ``<role>`` + the glob's literal suffix, e.g. ``<role>.agent.md``).
 The expected shared skill is ``core/skills/<role.skill>.skill.md`` — the SAME file for

@@ -9,7 +9,9 @@ is **deferred** (FR-XS-25). Generate lays the scaffold, opens VS Code where allo
 the exact start gesture — it does **not** auto-start the session.
 
 **Start gesture** (also surfaced by the generated `CLAUDE.md` tail, FR-XS-22): open a Claude Code
-terminal session at the working path and invoke `/start-brd`.
+terminal session at the working path and invoke `/start-ingest` — the Layer-1 kickoff that fires
+the data-&-context fan-out (`source_processor` ×N → `merge_manifest.py`). It keeps the orchestrator
+role and closes by surfacing `/start-brd` for the BRD stage.
 
 **Stage advance** (operator-performed, FR-XS-11): `/clear` or a new session, then the next prompt
 file — `/start-frd`, then `/start-jira`. The agent **surfaces** these as the closing line of a
@@ -20,4 +22,5 @@ environment variables — `CLAUDE_CODE_USE_BEDROCK=1`, the AWS region, and the B
 models run via JPMC Bedrock. These are env vars set **at launch**, not a function the skills call;
 skills stay model-neutral.
 
-**Prompt files shipped** (`overlays/claude/prompts/`): `start-brd`, `start-frd`, `start-jira`.
+**Prompt files shipped** (`overlays/claude/prompts/`): `start-ingest` (Layer-1 kickoff),
+`start-brd`, `start-frd`, `start-jira`.

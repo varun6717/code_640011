@@ -31,8 +31,8 @@ roles:
   - { name: jira_validator,   skill: jira_validator,   user_invocable: false }
   - { name: source_processor, skill: source_processor, user_invocable: false }
   - { name: code_impact,      skill: code_impact,      user_invocable: false }
-prompt_files: [start-brd, start-frd, start-jira]
+prompt_files: [start-ingest, start-brd, start-frd, start-jira]
 overlays:
-  claude:  { instruction_file: CLAUDE.md,                 agents_dir: .claude/agents/, launch: terminal_interactive }
-  copilot: { instruction_file: copilot-instructions.md,   agents_glob: "*.agent.md",   launch: agent_mode }
+  claude:  { instruction_file: CLAUDE.md,                       agents_dir: .claude/agents/, prompts_dir: prompts,        prompt_ext: .md,        launch: terminal_interactive }
+  copilot: { instruction_file: .github/copilot-instructions.md, agents_glob: "*.agent.md",   prompts_dir: .github/prompts, prompt_ext: .prompt.md, launch: agent_mode }
 parity_check: every_role_and_prompt_present_in_both_overlays

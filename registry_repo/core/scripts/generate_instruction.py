@@ -45,7 +45,8 @@ _TAIL = {
         "launch": "terminal_interactive",
         "start_gesture": (
             "open a Claude Code **terminal session** at the run working path and invoke "
-            "`/start-brd` (the BRD-stage prompt file)."
+            "`/start-ingest` (the Layer-1 kickoff prompt — it fires the data-&-context fan-out; "
+            "it then surfaces `/start-brd` for the BRD stage)."
         ),
         "stage_transition": (
             "at the close of each stage, surface the advance gesture — **`/clear` or a new "
@@ -54,11 +55,15 @@ _TAIL = {
         ),
     },
     "copilot": {
-        "instruction_file": "copilot-instructions.md",
+        # GitHub Copilot only auto-loads repo instructions from .github/copilot-instructions.md
+        # (root is ignored) — empirically confirmed on the VDI. The .github/ prefix is the
+        # relative write path under the run root; generate.py mkdirs the parent.
+        "instruction_file": ".github/copilot-instructions.md",
         "launch": "agent_mode",
         "start_gesture": (
-            "open VS Code **Copilot agent mode** at the run working path and run the `start-brd` "
-            "prompt file."
+            "open VS Code **Copilot agent mode** at the run working path and run the "
+            "`start-ingest` prompt file (the Layer-1 kickoff — it fires the data-&-context "
+            "fan-out, then surfaces `start-brd` for the BRD stage)."
         ),
         "stage_transition": (
             "at the close of each stage, surface the advance gesture — **`Ctrl+N`** for a fresh "

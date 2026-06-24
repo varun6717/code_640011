@@ -29,7 +29,7 @@ The resulting workspace is the §2.2 layout::
       UI_INPUT.yaml                      # immutable run config — the run's identity
       CLAUDE.md | copilot-instructions.md
       .claude/agents/ | *.agent.md       # hydrated overlay wrappers, lifted to run root
-      prompts/                           # start-brd, start-frd, start-jira
+      prompts/                           # start-ingest, start-brd, start-frd, start-jira
       core/                              # hydrated shared core (domain-pruned seams)
       repo/                              # empty — code clone happens at run (clone.py)
       context_set/                       # empty — ingestion fills it at run
@@ -186,12 +186,25 @@ def generate(
     if not str(dest):
         raise ValueError("no working_path: set it in UI_INPUT.yaml or pass working_path=")
 
-    registry = Path(registry) if registry else hydrate._REPO_ROOT
+    # Registry source precedence: explicit param (env / external-build override) > UI_INPUT's
+    # registry_url (the operator-entered Bitbucket repo) > repo root (external build). A URL is
+    # kept as a raw string — hydrate detects remote-vs-local; Path() would collapse '//'.
+    registry = registry or ui.get("registry_url") or hydrate._REPO_ROOT
+    registry_ref = ui.get("registry_ref") or None   # optional branch/tag for the registry repo
+
+    # Live registry → pin the branch tip at Generate (TASK-053): the operator supplies repo +
+    # branch and registry_sha is resolved via ls-remote, never hand-entered. A local / external-
+    # build registry keeps the UI_INPUT pin (the placeholder the UI emits).
+    registry_str = str(registry)
+    if "://" in registry_str or registry_str.startswith("git@"):
+        registry_sha = hydrate.resolve_remote_sha(registry_str, registry_ref)
 
     dest.mkdir(parents=True, exist_ok=True)
 
     # 1) Hydrate the SHA-pinned registry slice → core/ (domain-pruned) + overlays/<tool>/.
-    hydrate_desc = hydrate.hydrate(registry, registry_sha, domain, runtime_tool, dest, force=force)
+    hydrate_desc = hydrate.hydrate(
+        registry, registry_sha, domain, runtime_tool, dest, ref=registry_ref, force=force
+    )
 
     # 2) Lift the overlay wrappers + prompts to the run root (§2.2), drop the overlays/ tree.
     placed = _place_overlay(dest, runtime_tool)
@@ -206,7 +219,9 @@ def generate(
     template = (dest / "core" / "instruction_file.template.md").read_text(encoding="utf-8")
     manifest = _load_yaml(dest / "core" / "overlay_manifest.yaml")
     instruction_file, content = render_instruction_file(ui, manifest, template)
-    (dest / instruction_file).write_text(content, encoding="utf-8")
+    instr_out = dest / instruction_file
+    instr_out.parent.mkdir(parents=True, exist_ok=True)   # copilot writes under .github/
+    instr_out.write_text(content, encoding="utf-8")
 
     # 5) Initialize the ledger (telemetry.jsonl, run_state.json @ ingest/pending, decisions.jsonl).
     ledger.init_ledger(dest / "ledger", run_id=run_id)

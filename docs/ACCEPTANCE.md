@@ -40,7 +40,7 @@ ledger and re-checks every gate + all five §10 build checks + metrics).
 ### G0 — scaffold checkpoint (D4, FR-XS-09)
 
 `generate.py` laid the §2.2 workspace (instruction file `copilot-instructions.md`, 8 overlay
-wrappers + 3 prompt files, domain-pruned `core/`, initialized ledger, empty `context_set/` +
+wrappers + 4 prompt files, domain-pruned `core/`, initialized ledger, empty `context_set/` +
 `repo/`) and **stopped before any stage** — Generate and Run are deliberately two steps so the
 scaffold + immutable `UI_INPUT.yaml` are inspectable at G0. `ran_workflow: false`, `checkpoint: G0`.
 

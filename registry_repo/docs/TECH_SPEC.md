@@ -95,7 +95,7 @@ registry/
   UI_INPUT.yaml                     # immutable run config (§3.1) — the run's identity
   CLAUDE.md | copilot-instructions.md   # generated instruction file (§6)
   .claude/agents/ | *.agent.md      # hydrated overlay wrappers
-  prompts/                          # start-brd, start-frd, start-jira
+  prompts/                          # start-ingest, start-brd, start-frd, start-jira
   core/                             # hydrated shared core (skills, scripts, extractors, profiles[domain], templates[domain])
   repo/                             # git clone of the SEAL-ID repo (code source) — single repo, MVP
   context_set/
@@ -568,7 +568,7 @@ Variation confined to: the **pre-processing adapter** (`profiles/<domain>/adapte
 
 ### 6.2 Runtime-tool seam
 
-Two hand-authored overlays (D9): `overlays/claude/` and `overlays/copilot/`. Each carries the agent/subagent **wrapper files**, the **per-stage prompt files** (`start-brd`, `start-frd`, `start-jira`), and the **launch** method — kept native (frontmatter + location genuinely differ; not abstracted). The **only generated piece** is the instruction file.
+Two hand-authored overlays (D9): `overlays/claude/` and `overlays/copilot/`. Each carries the agent/subagent **wrapper files**, the **prompt files** (`start-ingest` Layer-1 kickoff + the per-stage `start-brd`, `start-frd`, `start-jira`), and the **launch** method — kept native (frontmatter + location genuinely differ; not abstracted). The **only generated piece** is the instruction file.
 
 ### 6.3 Instruction-file generation (FR-XS-07, D9)
 
@@ -588,7 +588,7 @@ The template body is identical across tools except the gesture/launch lines pull
 
 ### 6.4 Stage transitions (FR-XS-11)
 
-Defined in the instruction file, **surfaced by the agent** as the closing line of the prior stage, **performed by the operator** (Claude `/clear`/new session; Copilot `Ctrl+N` + prompt file). The agent never self-issues them. Each overlay ships the three prompt files; each just re-points a fresh agent at `UI_INPUT.yaml` + the prior artifact.
+Defined in the instruction file, **surfaced by the agent** as the closing line of the prior stage, **performed by the operator** (Claude `/clear`/new session; Copilot `Ctrl+N` + prompt file). The agent never self-issues them. Each overlay ships the three stage prompt files; each just re-points a fresh agent at `UI_INPUT.yaml` + the prior artifact. The fourth prompt, **`start-ingest`**, is not a stage transition: it is the run's **kickoff**, fired by the operator as the start gesture (FR-XS-22) to drive **Layer 1** (Run order step 1 — `source_processor` fan-out, then `merge_manifest.py`). It keeps the orchestrator role rather than handing off to an authoring agent, and closes by surfacing `start-brd` (the Layer-2 transition).
 
 ### 6.5 Parity build-check (FR-XS-20) — see §10.2
 
@@ -805,7 +805,7 @@ for tool in [claude, copilot]:
 FAIL → name the missing role/prompt and the overlay.
 ```
 
-`overlay_manifest.yaml` is the D9-normative block (8 roles, 3 prompt files, per-tool launch) and is reproduced unchanged from REQUIREMENTS D9.
+`overlay_manifest.yaml` is the D9-normative block (8 roles, 4 prompt files — `start-ingest` + the three stage prompts, per-tool launch) and is reproduced unchanged from REQUIREMENTS D9.
 
 ### 10.3 Domain artifact presence (§6.6.1)
 

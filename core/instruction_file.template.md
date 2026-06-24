@@ -37,10 +37,12 @@ rest are subagents you (or an authoring agent) spawn — autonomous, returning a
 
 ## Run order
 
-1. **Layer 1 — Data & context.** Fan out one `source_processor` subagent per `UI_INPUT.sources[]`
-   entry; each runs the source-type connector then the domain adapter, writing its slice. For the
-   code source, `source_processor` hands off to a `code_map_build` subagent (`code_map.json`,
-   cached by `commit_sha`). After fan-out, call `merge_manifest.py` to fan in `context_set/index.json`.
+1. **Layer 1 — Data & context.** *Operator fires this with the `start-ingest` prompt (the run
+   kickoff); you stay the orchestrator.* Fan out one `source_processor` subagent per
+   `UI_INPUT.sources[]` entry; each runs the source-type connector then the domain adapter, writing
+   its slice. For the code source, `source_processor` hands off to a `code_map_build` subagent
+   (`code_map.json`, cached by `commit_sha`). After fan-out, call `merge_manifest.py` to fan in
+   `context_set/index.json`. Close by surfacing `start-brd`.
 2. **Layer 2 — BRD.** The operator starts `brd_author` (own session). It loads `UI_INPUT` ·
    `brd_profile` · `index.json` · `code_map.json`, and delegates `code_impact` subagents for
    requirement-level code-impact + scope **Flags**. `brd_validator` scores it. → **gate G1**.
@@ -50,7 +52,8 @@ rest are subagents you (or an authoring agent) spawn — autonomous, returning a
 
 ## Stages & prompt files
 
-Each stage is started by re-pointing a fresh agent at `UI_INPUT.yaml` + the prior artifact via a
+The run is kicked off by `start-ingest` (Layer 1; keeps the orchestrator role). Each subsequent
+stage is started by re-pointing a fresh agent at `UI_INPUT.yaml` + the prior artifact via its
 prompt file. The overlay ships these prompt files:
 
 {{prompt_files}}

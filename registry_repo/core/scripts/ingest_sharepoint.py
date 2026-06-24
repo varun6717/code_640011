@@ -64,8 +64,10 @@ def _download_pdf(url: str, handle, target: Path) -> None:
     """[TBD — VDI] Fetch the PDF at ``url`` from SharePoint and write its bytes to ``target``.
 
     This is the ONLY environment-specific piece. On the VDI, implement the real fetch here
-    (or inject an implementation via :func:`set_downloader` without editing this file). A
-    typical Microsoft Graph implementation:
+    (or inject an implementation via :func:`set_downloader` without editing this file).
+    Model it on the tenant's working API example kept under ``core/scripts/_refs/`` — drop
+    your reference at ``core/scripts/_refs/sharepoint_graph_reference.py`` (see that dir's
+    README; reference material only, no secrets). A typical Microsoft Graph implementation:
 
         import httpx                                    # already a backend dependency
         token = handle.reveal() if handle else None     # the seam-resolved access token

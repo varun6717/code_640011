@@ -20,8 +20,9 @@ or divergent wrapper fails the build loudly (FR-XS-20).
             assert prompts/<p> exists in tool's overlay
     FAIL → name the missing role/prompt and the overlay.
 
-``overlay_manifest.yaml`` is the D9-normative source of truth (8 roles, 3 prompt files,
-per-tool launch), reproduced unchanged from REQUIREMENTS D9. Per-tool wrapper paths are
+``overlay_manifest.yaml`` is the D9-normative source of truth (8 roles, 4 prompt files —
+``start-ingest`` + the three stage prompts, per-tool launch), reproduced unchanged from
+REQUIREMENTS D9. Per-tool wrapper paths are
 derived from the manifest itself: ``agents_dir`` (claude → ``<dir>/<role>.md``) or
 ``agents_glob`` (copilot → ``<role>`` + the glob's literal suffix, e.g. ``<role>.agent.md``).
 The expected shared skill is ``core/skills/<role.skill>.skill.md`` — the SAME file for
@@ -149,8 +150,12 @@ def _check_overlay(
                                  f"manifest user_invocable={role.get('user_invocable')}, "
                                  f"wrapper={fm.get('user_invocable')}"))
 
+    # Per-tool prompt location/ext from the manifest (claude: prompts/<p>.md;
+    # copilot: .github/prompts/<p>.prompt.md). Defaults preserve the legacy claude layout.
+    prompts_dir = str(tool_cfg.get("prompts_dir", "prompts"))
+    prompt_ext = str(tool_cfg.get("prompt_ext", ".md"))
     for p in prompt_files:
-        pp = overlay_root / "prompts" / f"{p}.md"
+        pp = overlay_root / prompts_dir / f"{p}{prompt_ext}"
         if not pp.exists():
             out.append(Violation(tool, p, "missing_prompt",
                                  f"no prompt file at {pp.relative_to(overlay_root.parent.parent)}"))

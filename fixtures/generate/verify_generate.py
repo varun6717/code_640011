@@ -77,8 +77,8 @@ def main() -> int:
 
         # copilot prompts land at .github/prompts/<p>.prompt.md (GitHub Copilot's discovered layout)
         prompts = sorted(p.name[:-len(".prompt.md")] for p in (dest / ".github" / "prompts").glob("*.prompt.md"))
-        check(prompts == ["start-brd", "start-frd", "start-jira"],
-              f".github/prompts/ has start-brd/frd/jira (got {prompts})")
+        check(prompts == ["start-brd", "start-frd", "start-ingest", "start-jira"],
+              f".github/prompts/ has start-ingest + start-brd/frd/jira (got {prompts})")
 
         check((dest / "core" / "overlay_manifest.yaml").is_file(), "core/ hydrated")
         # domain seam pruned — only payment_brand profiles/templates hydrated.

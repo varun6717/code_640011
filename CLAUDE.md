@@ -71,6 +71,12 @@ All 12 per-tag mappings now match; §10.5 verified green at TASK-017 (re-gated a
 
 ---
 
+## Resolved decision (D9 amendment — `start-ingest` Layer-1 kickoff, V-approved)
+
+**Gap found on VDI:** the prompt-file set (`start-brd`/`start-frd`/`start-jira`) had **no operator entry point for Layer 1** (Data & context). The surfaced start gesture pointed at `start-brd`, which overrides the orchestrator role and jumps to BRD authoring — so running it first silently skipped ingestion (no `context_set/index.json`, no `code_map.json`). **Resolution (full ladder, V-approved):** added **`start-ingest`** — a *non-interactive kickoff* prompt (distinct in kind from the three stage transitions) that keeps the orchestrator role and executes Run order step 1 (`source_processor` fan-out → `merge_manifest.py`), then surfaces `start-brd`. The per-tool **start gesture (FR-XS-22) is repointed** `start-brd → start-ingest`. Amended across the ladder: D9 + FR-XS-11 + §10.2 (`prompt_files: [start-ingest, start-brd, start-frd, start-jira]`), the manifest, both overlays, the generator, both `launch.md`, and the instruction template. §10.2 parity green (8 roles + 4 prompts). **Port note:** carry this amendment into the JPMC-side D9/manifest at port time.
+
+---
+
 ## Repo layout (after TASK-000)
 
 ```

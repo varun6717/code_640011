@@ -677,7 +677,7 @@ The five build checks become runnable, and the spine is exercised end-to-end on 
 - **Model:** Sonnet — Python parity script; rule is manifest roles vs overlay files
 - **Reads:** `docs/TECH_SPEC.md` §10.2 (parity rule); `docs/REQUIREMENTS.md` D9.
 - **Creates / edits:** `core/scripts/checks/check_overlay_parity.py`.
-- **Do:** Assert both overlays expose every `overlay_manifest` role pointing at the same shared skill, with the same 3 prompt files, differing only in tool-native syntax/launch.
+- **Do:** Assert both overlays expose every `overlay_manifest` role pointing at the same shared skill, with the same 4 prompt files (`start-ingest` + the three stage prompts), differing only in tool-native syntax/launch.
 - **Acceptance:** passes on real overlays; fails if a Copilot wrapper is missing or points at a divergent skill.
 - **Fixture / proof:** a deleted-wrapper variant.
 - **Satisfies:** FR-XS-08, FR-XS-19, FR-XS-20.

@@ -10,7 +10,9 @@ hydrated scaffold). MVP is **manual start** (D10, FR-XS-22); auto-launch is **de
 gesture — it does **not** auto-start the session.
 
 **Start gesture** (also surfaced by the generated `copilot-instructions.md` tail, FR-XS-22): open
-Copilot agent mode at the working path and run the `start-brd` prompt file.
+Copilot agent mode at the working path and run the `start-ingest` prompt file — the Layer-1
+kickoff that fires the data-&-context fan-out (`source_processor` ×N → `merge_manifest.py`). It
+keeps the orchestrator role and closes by surfacing `start-brd` for the BRD stage.
 
 **Stage advance** (operator-performed, FR-XS-11): press **`Ctrl+N`** for a fresh agent, then run
 the next prompt file — `start-frd`, then `start-jira`. The agent **surfaces** these as the closing
@@ -21,4 +23,5 @@ terminal commands; the **user-scope** terminal allow-list must be provisioned so
 runs without per-command approval stalls. This is **surfaced by Generate/onboarding and provisioned
 centrally — the scaffolder does NOT emit it.** See `overlays/copilot/VDI_PREREQUISITES.md`.
 
-**Prompt files shipped** (`overlays/copilot/prompts/`): `start-brd`, `start-frd`, `start-jira`.
+**Prompt files shipped** (`overlays/copilot/.github/prompts/`): `start-ingest` (Layer-1 kickoff),
+`start-brd`, `start-frd`, `start-jira`.

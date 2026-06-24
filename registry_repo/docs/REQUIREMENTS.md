@@ -50,7 +50,7 @@ Where this document **refines** an example skill (e.g. dropping the standalone `
 | FR-XS-08 | M | Each agent role MUST be a **thin tool-specific wrapper** pointing at **one shared skill**; the logic MUST NOT be copied across tools. Interactive roles (`brd_author`, `frd_author`) are `user-invocable`; workers (`source_processor`, `code_impact`, validators) are subagent-only. | §4, §11 |
 | FR-XS-09 | M | **Generate-scaffold and run-workflow MUST be two steps** so the scaffold and `UI_INPUT.yaml` can be inspected before execution. | §5 |
 | FR-XS-10 | M | Hydration MUST pull version-pinned content from the Bitbucket registry and record the **registry commit SHA in `UI_INPUT.yaml`** for reproducibility. | §5 |
-| FR-XS-11 | M | Stage transitions at interactive boundaries MUST be defined **in the instruction file**, surfaced by the agent as the closing line of the prior stage, and **performed by the operator** (Claude `/clear`/new session; Copilot `Ctrl+N`). The agent MUST NOT self-issue them. Each overlay ships per-stage prompt files (`/start-brd`, `/start-frd`, `/start-jira`). | §4 |
+| FR-XS-11 | M | Stage transitions at interactive boundaries MUST be defined **in the instruction file**, surfaced by the agent as the closing line of the prior stage, and **performed by the operator** (Claude `/clear`/new session; Copilot `Ctrl+N`). The agent MUST NOT self-issue them. Each overlay ships per-stage prompt files (`/start-brd`, `/start-frd`, `/start-jira`), plus a **non-interactive Layer-1 kickoff prompt** (`/start-ingest`) that fires the data-&-context fan-out — an orchestrator trigger, not an interactive stage transition (D9 amendment). | §4 |
 | FR-XS-12 | W | No custom context-refresh mechanism is built for MVP; the system relies on each tool's auto-compaction plus operator new-thread at boundaries. | §4 |
 
 ## A2. Data & context layer (Layer 1)
@@ -485,7 +485,7 @@ Metrics (Part A6) are derived by filtering/aggregating these events; no metric i
 
 **Decision.** **Hand-maintain the two overlays for MVP, with parity enforced by a shared checklist spec — not a generator.** Concretely:
 - **Generated (one piece only):** the **instruction file** (`CLAUDE.md` / `copilot-instructions.md`) is emitted at Generate from **one canonical template** (already required, FR-XS-07).
-- **Hand-authored, native, per tool:** the **agent/subagent wrapper files** and **per-stage prompt files** — kept idiomatic (frontmatter + location genuinely differ; §4 says don't abstract).
+- **Hand-authored, native, per tool:** the **agent/subagent wrapper files** and **prompt files** — kept idiomatic (frontmatter + location genuinely differ; §4 says don't abstract). The prompt-file set is the three per-stage transitions (`start-brd`, `start-frd`, `start-jira`) **plus `start-ingest`**, the non-interactive Layer-1 kickoff that fires the data-&-context fan-out (it keeps the orchestrator role rather than handing off to an authoring agent; see the amendment note below).
 - **Parity tooling (not generation):** a `core/overlay_manifest.yaml` lists every required role (with its shared skill), every prompt file, and the launch method **per tool**. A build check asserts that each overlay implements every manifest role with a wrapper pointing at the correct shared skill, and ships every required prompt file. Author by hand; **verify by spec**.
 
 **Resulting artifact — `core/overlay_manifest.yaml` (normative):**
@@ -500,7 +500,7 @@ roles:
   - { name: jira_validator,   skill: jira_validator,   user_invocable: false }
   - { name: source_processor, skill: source_processor, user_invocable: false }
   - { name: code_impact,      skill: code_impact,      user_invocable: false }
-prompt_files: [start-brd, start-frd, start-jira]
+prompt_files: [start-ingest, start-brd, start-frd, start-jira]
 overlays:
   claude:  { instruction_file: CLAUDE.md,                 agents_dir: .claude/agents/, launch: terminal_interactive }
   copilot: { instruction_file: copilot-instructions.md,   agents_glob: "*.agent.md",   launch: agent_mode }
@@ -510,6 +510,8 @@ parity_check: every_role_and_prompt_present_in_both_overlays
 **Rationale.** Only two overlays, both thin; a generator would be machinery for little gain and risks a leaky abstraction over genuinely-divergent native syntax — violating **MVP-honest** and §4's "keep each native, don't abstract." The manifest gives the safety of a single source of truth (no role silently missing from one tool) without the cost of generation. Generating the wrappers once the role set stabilizes is a **deferred** option.
 
 **Emits:** `FR-XS-19 (M)` overlay wrappers + prompt files are hand-authored per tool; the instruction file is generated from one template. `FR-XS-20 (M)` `core/overlay_manifest.yaml` is the parity source of truth; the build MUST fail if either overlay omits a listed role or prompt file. `FR-XS-21 (W)` generating wrappers from the manifest is deferred.
+
+**Amendment (V-approved) — `start-ingest` Layer-1 kickoff prompt.** The original prompt-file set (`start-brd`, `start-frd`, `start-jira`) covered only the interactive authoring stages (Layers 2–3); it shipped **no operator-invocable entry point for Layer 1** (Data & context). The run order assumed the orchestrator would self-fire the `source_processor` fan-out, but the surfaced start gesture pointed at `start-brd` — which overrides the orchestrator role and jumps straight to BRD authoring, so Layer 1 was silently skipped (no `context_set/index.json`, no `code_map.json`). Resolution: add **`start-ingest`** as a fourth prompt file — a **non-interactive kickoff** (distinct in kind from the three stage transitions) that keeps the orchestrator role and executes Run order step 1 (fan out `source_processor` per `UI_INPUT.sources[]`, then `merge_manifest.py`). The per-tool **start gesture** (FR-XS-22) is repointed from `start-brd` to `start-ingest`. `prompt_files` becomes `[start-ingest, start-brd, start-frd, start-jira]`; the §10.2 parity check enforces it in both overlays.
 
 ---
 

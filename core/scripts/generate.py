@@ -29,7 +29,7 @@ The resulting workspace is the §2.2 layout::
       UI_INPUT.yaml                      # immutable run config — the run's identity
       CLAUDE.md | copilot-instructions.md
       .claude/agents/ | *.agent.md       # hydrated overlay wrappers, lifted to run root
-      prompts/                           # start-brd, start-frd, start-jira
+      prompts/                           # start-ingest, start-brd, start-frd, start-jira
       core/                              # hydrated shared core (domain-pruned seams)
       repo/                              # empty — code clone happens at run (clone.py)
       context_set/                       # empty — ingestion fills it at run

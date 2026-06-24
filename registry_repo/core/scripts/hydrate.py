@@ -73,6 +73,21 @@ def _git(args: list[str], cwd: Path | None = None) -> str:
     return proc.stdout.strip()
 
 
+def resolve_remote_sha(url: str, ref: str | None = None) -> str:
+    """Pin the current tip of a remote registry branch (TASK-053): ``git ls-remote`` → SHA.
+
+    ``ref`` is the branch/tag the registry lives on (e.g. ``feature/pdlc_app``); ``None``
+    resolves the remote's default ``HEAD``. Used at Generate so the operator supplies repo +
+    branch and the ``registry_sha`` is resolved automatically, never hand-entered. Raises if the
+    ref does not resolve — a live registry that cannot be pinned fails loud (FR-XS-10/NFR-01).
+    """
+    target = ref or "HEAD"
+    out = _git(["ls-remote", url, target])
+    if not out:
+        raise RuntimeError(f"registry ref not found: {url}@{target} (ls-remote returned no match)")
+    return out.split()[0]
+
+
 def _is_git_source(path: Path) -> bool:
     """True if ``path`` is a git repo git can clone from — a work tree (has ``.git``) OR a
     **bare** repo (`git init --bare`, the shape a local "Bitbucket" remote takes).
@@ -142,6 +157,7 @@ def hydrate(
     runtime_tool: str,
     dest: str | Path,
     *,
+    ref: str | None = None,
     force: bool = False,
 ) -> dict:
     """Hydrate the run scaffold at ``dest`` from ``registry`` pinned at ``registry_sha``.
@@ -150,6 +166,11 @@ def hydrate(
     ``core/`` (domain-pruned) + ``overlays/<runtime_tool>/`` into ``dest``. Returns a
     descriptor recording the verified SHA and the sorted list of copied files. A local
     non-git ``registry`` is copied directly (SHA unverified, noted) — external-build only.
+
+    ``ref`` (optional branch/tag) lands the shallow clone on a specific branch — needed when
+    the registry lives on a feature branch (one-repo/two-feature layout), so the pinned SHA is
+    reachable. ``registry`` may be a remote URL (``https://…`` / ``git@…``) or a local path; a
+    URL is passed to ``git clone`` verbatim (never ``Path``-normalized — that collapses ``//``).
     """
     if runtime_tool not in ("claude", "copilot"):
         raise ValueError(f"runtime_tool must be 'claude' or 'copilot' (got {runtime_tool!r})")
@@ -159,19 +180,26 @@ def hydrate(
     if dest_core.exists() and any(dest_core.iterdir()) and not force:
         raise FileExistsError(f"scaffold already hydrated: {dest_core} exists (use force=True to overwrite)")
 
-    registry = Path(registry)
+    registry_str = str(registry)
+    is_remote = "://" in registry_str or registry_str.startswith("git@")
+    local = None if is_remote else Path(registry)   # URLs stay strings — Path() collapses '//'
     note: str | None = None
     tmp: Path | None = None
     try:
-        if registry.is_dir() and not _is_git_source(registry):
+        if local is not None and local.is_dir() and not _is_git_source(local):
             # External-build convenience: a local non-git registry — copy current tree.
-            source_root = registry
+            source_root = local
             verified_sha = None
             note = "local non-git registry copied directly (external build); registry_sha unverified"
         else:
+            clone_src = registry_str if is_remote else str(local)
             tmp = Path(tempfile.mkdtemp(prefix="hydrate-"))
             checkout = tmp / "registry"
-            _git(["clone", "--depth", "1", str(registry), str(checkout)])
+            clone_cmd = ["clone", "--depth", "1"]
+            if ref:
+                clone_cmd += ["--branch", ref]   # land the shallow clone on the registry's branch
+            clone_cmd += [clone_src, str(checkout)]
+            _git(clone_cmd)
             try:
                 _git(["checkout", registry_sha], cwd=checkout)
             except RuntimeError:
@@ -218,14 +246,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ui-input", help="path to UI_INPUT.yaml; pulls registry_sha/domain/runtime_tool/working_path")
     ap.add_argument("--registry", help=f"registry path or URL (default: this repo root, {_REPO_ROOT})")
     ap.add_argument("--registry-sha", help="pinned registry commit (overrides UI_INPUT)")
+    ap.add_argument("--registry-ref", help="branch/tag the registry lives on, e.g. feature/pdlc_app (overrides UI_INPUT.registry_ref)")
     ap.add_argument("--domain", help="domain to hydrate (overrides UI_INPUT)")
     ap.add_argument("--runtime-tool", choices=["claude", "copilot"], help="overlay to hydrate (overrides UI_INPUT)")
     ap.add_argument("--dest", help="scaffold destination (default: UI_INPUT.working_path)")
     ap.add_argument("--force", action="store_true", help="overwrite an already-hydrated dest/core")
     args = ap.parse_args(argv)
 
-    registry_sha, domain, runtime_tool, dest = (
-        args.registry_sha, args.domain, args.runtime_tool, args.dest,
+    registry_sha, domain, runtime_tool, dest, registry_ref = (
+        args.registry_sha, args.domain, args.runtime_tool, args.dest, args.registry_ref,
     )
     if args.ui_input:
         import yaml  # local import: only the UI-INPUT path needs YAML
@@ -235,6 +264,7 @@ def main(argv: list[str] | None = None) -> int:
         domain = domain or cfg.get("domain")
         runtime_tool = runtime_tool or cfg.get("runtime_tool")
         dest = dest or cfg.get("working_path")
+        registry_ref = registry_ref or cfg.get("registry_ref")
 
     registry = args.registry or str(_REPO_ROOT)
     missing = [n for n, v in (("registry_sha", registry_sha), ("domain", domain),
@@ -244,7 +274,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         descriptor = hydrate(
-            registry, registry_sha, domain, runtime_tool, dest, force=args.force,
+            registry, registry_sha, domain, runtime_tool, dest, ref=registry_ref or None, force=args.force,
         )
     except (ValueError, FileExistsError, RuntimeError, OSError) as exc:
         print(f"hydrate.py: {exc}", file=sys.stderr)
