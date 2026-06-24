@@ -834,6 +834,216 @@ for fixture consistency.
 
 ---
 
+## Milestone 5B — decomposed tasks (TASK-060+)
+
+> The backlog above, broken into **one-session, Copilot-runnable tasks** in rough dependency order — tackle top-down. **Build-and-port discipline (carry into every task):** build the **generic** connector / skill / orchestrator **here** (offline-testable), and for any piece that must hit a **real external API or secret store**, leave a `set_*`-style **injection seam + a `[TBD — VDI]` placeholder** — the real call is a thin `/vdi` plugin that snaps into the seam on the VDI (gitignored, never pushed). Keep each env-specific call in **its own isolated function** so VDI edits and future generic edits never share a region. The three carried fixes are independent quick wins.
+
+### Carried fixes (independent — small)
+
+### TASK-060 — Thread the run's `runtime_tool` through G1/G2 telemetry
+- **Phase:** P5-B · **Depends on:** TASK-032 (telemetry), the brd/frd validators.
+- **Model:** Sonnet — one-field plumbing fix.
+- **Reads:** `core/scripts/brd_validator.py` / `frd_validator.py` (`record_g1`/`record_g2` `Emitter`); `docs/TECH_SPEC.md` §8.1.
+- **Creates / edits:** `brd_validator.record_g1`, `frd_validator.record_g2`.
+- **Do:** Replace the hardcoded `tool="claude"` in the validators' telemetry `Emitter` with `UI_INPUT.runtime_tool` so the acceptance ledger's envelopes carry the run's actual tool.
+- **Acceptance:** a copilot run's G1/G2 envelopes record `tool: copilot`; build_checks green.
+- **Fixture / proof:** a copilot-config run; assert the ledger envelopes carry `copilot`.
+- **Satisfies:** carried fix (a) — same fix as VDI **V-11**.
+
+### TASK-061 — Reconcile the D5 `card_brand` / `message_format` `emitted_by` gap
+- **Phase:** P5-B · **Depends on:** the r2 `vocabulary.yaml` fix (already in).
+- **Model:** Sonnet — doc reconciliation.
+- **Reads:** `CLAUDE.md` (resolved-flag port note); `docs/REQUIREMENTS.md` D5 table; `core/profiles/payment_brand/vocabulary.payment_brand.yaml` (already r2).
+- **Creates / edits:** the D5 table in `docs/REQUIREMENTS.md`.
+- **Do:** Add `code_map_build` to `emitted_by` for `card_brand` + `message_format` in the D5 table so D5 and `vocabulary.yaml` agree.
+- **Acceptance:** D5 table == `vocabulary.yaml`; §10.5 stays green.
+- **Fixture / proof:** §10.5 green; manual diff D5 vs vocab.
+- **Satisfies:** carried fix (b) — same fix as VDI **V-10**.
+
+### TASK-062 — Align `UI_INPUT.example.yaml` frame with the bundled PDF
+- **Phase:** P5-B · **Depends on:** —.
+- **Model:** Sonnet — fixture consistency.
+- **Reads:** `fixtures/UI_INPUT.example.yaml`; the bundled PDF fixture (Mastercard mandate).
+- **Creates / edits:** `fixtures/UI_INPUT.example.yaml` frame (title/intent).
+- **Do:** The frame still says "Discover" while the bundled PDF is the Mastercard mandate — align the frame to the actual fixture.
+- **Acceptance:** frame matches the bundled PDF subject; verify_frontend/backend still green.
+- **Fixture / proof:** proofs green after the edit.
+- **Satisfies:** carried fix (c).
+
+### Connectors
+
+### TASK-063 — Confluence connector (`ingest_confluence.py`)
+- **Phase:** P5-B · **Depends on:** TASK-055 (`ingest_sharepoint.py` pattern), TASK-033 (`source_processor`), TASK-052 (auth seam).
+- **Model:** Sonnet — one more source-type-keyed connector on the established contract.
+- **Reads:** `core/scripts/ingest_sharepoint.py` + `ingest_file.py` (descriptor contract); `docs/TECH_SPEC.md` §6.6.2, §3.2; FR-DC-01/11/12; the §3.1 example (`type: confluence`).
+- **Creates / edits:** `core/scripts/ingest_confluence.py`.
+- **Do:** Generic Confluence connector — same descriptor shape as `ingest_file.py`, `auth_ref: jpmc_adapters:confluence`, never branches on `domain`. Keep the real Confluence fetch in **one isolated function** behind a `set_fetcher`-style seam + a `[TBD — VDI]` placeholder (real API = the `/vdi` port leaf). Offline local-path convenience as in `ingest_sharepoint.py`.
+- **Acceptance:** a `type:confluence` source stages content + emits a contract-valid descriptor (offline via local path); downstream unchanged; §10.4 maps `type:confluence → ingest_confluence.py` green; no domain branch (AST check).
+- **Fixture / proof:** `fixtures/confluence/verify_confluence.py` — local-path stand-in; descriptor matches `ingest_file.py`.
+- **Satisfies:** FR-DC-01, FR-DC-11, FR-DC-12.
+
+### Jira (the only external mutation + G3)
+
+### TASK-064 — Jira authoring + validation skills + `jira_template`
+- **Phase:** P5-B · **Depends on:** the BRD/FRD author+validator pattern, the domain seam.
+- **Model:** Opus — new authoring + gate semantics.
+- **Reads:** `docs/TECH_SPEC.md` §9.4 (jira), §10.3 (seam requires `jira_template`); FR-JR-*, FR-XS-17.
+- **Creates / edits:** `core/skills/jira_author.skill.md`, `core/skills/jira_validator.skill.md`; `core/profiles/payment_brand/jira_template.*`.
+- **Do:** Author the Jira epic/story generation skill + its validator; add `jira_template` to the domain seam (once present, §10.3 requires it).
+- **Acceptance:** a fixture FRD → jira plan authored + gated; §10.3 now checks `jira_template` (green); no external push yet (TASK-065).
+- **Fixture / proof:** a fixture FRD → jira plan; validator gate runs.
+- **Satisfies:** FR-JR-*, FR-XS-17.
+
+### TASK-065 — Jira push seam + `jira_plan/` + `trace.json` + G3 gate
+- **Phase:** P5-B · **Depends on:** TASK-064, TASK-052 (auth seam).
+- **Model:** Opus — the **only** external mutation; highest care.
+- **Reads:** `docs/TECH_SPEC.md` §3.8 (`jira_plan/`, `trace.json`), §7 (push seam), §9 (G3); FR-JR-*, FR-XS-17.
+- **Creates / edits:** `core/adapters/jpmc_adapters/jira.py`, `jira_plan/` + `trace.json` emit, the G3 gate.
+- **Do:** Generic Jira-push connector behind a `set_*` seam + placeholder (real JPMC Jira REST = the `/vdi` leaf); emit `jira_plan/` + `trace.json`; gate **G3** before push. The push is the **only** external mutation — operator-confirmed.
+- **Acceptance:** G3 gates the plan; a stub push records `trace.json` (issue keys); no secret on disk; push is the sole mutation; build_checks green.
+- **Fixture / proof:** stub Jira endpoint; G3 + `trace.json` proof; no secret on disk.
+- **Satisfies:** FR-JR-*, FR-XS-17, §7.
+
+### Code-impact enhancements (real-corpus value)
+
+### TASK-066 — `purpose`-as-discovery in the coarse pass
+- **Phase:** P5-B · **Depends on:** TASK-040 (coarse pass).
+- **Model:** Opus.
+- **Reads:** the code_impact coarse pass; ADR-005; the 5B backlog item.
+- **Creates / edits:** the coarse-pass agent (TASK-040).
+- **Do:** Let the coarse pass also use `purpose` for **semantic candidate discovery** (surface a component whose `purpose` describes the requirement even when the matching *tag* wasn't applied) — mitigates the under-applied-tag blind spot. Advisory + cite-or-flag (never silently widen scope; surface via Flags). The model-free rule governs *building* the map, not the already-model-driven coarse consumer.
+- **Acceptance:** a mis-tagged-but-`purpose`-relevant component surfaces as a flagged candidate; never silently widens scope; deep-pass closure unchanged.
+- **Fixture / proof:** a fixture with an under-applied tag → coarse pass surfaces it via `purpose`.
+- **Satisfies:** ADR-005 (`purpose` leverage); enhances TASK-040/041.
+
+### TASK-067 — Doc-side semantic-gap signal
+- **Phase:** P5-B · **Depends on:** §5.4.1 vocab-adequacy.
+- **Model:** Sonnet.
+- **Reads:** ADR-005 open-Q #2; the code-side `uncovered_concepts`.
+- **Creates / edits:** a doc-arm analog to `uncovered_concepts`.
+- **Do:** Add a doc-side equivalent of the code side's `uncovered_concepts` so vocabulary-adequacy detection (§5.4.1) is symmetric across both arms, not code-only.
+- **Acceptance:** the doc arm emits a leftover-meaning signal symmetric to the code arm; §5.4.1 considers both.
+- **Fixture / proof:** a doc with vocabulary-uncovered meaning → doc-side gap signal.
+- **Satisfies:** ADR-005 open-Q #2.
+
+### TASK-068 — Multi-repo cross-repo closure
+- **Phase:** P5-B · **Depends on:** the `code_map` build (TASK-038/039), TASK-054 (clone).
+- **Model:** Opus.
+- **Reads:** `docs/TECH_SPEC.md` §3.3 (reserved `external_calls`/`exposes`), FR-DC-18.
+- **Creates / edits:** `code_map.json` cross-repo fields + closure logic + multi-repo clone (N repos/run).
+- **Do:** Populate the reserved `external_calls`/`exposes` fields and implement cross-repo closure (a requirement spanning >1 repo).
+- **Acceptance:** a 2-repo run maps cross-repo calls; closure surfaces impact across repos; single-repo unaffected.
+- **Fixture / proof:** two linked fixture repos → a cross-repo edge in `code_map` + closure.
+- **Satisfies:** FR-DC-18.
+
+### Domain onboarding (the proposer skills, then the orchestrator)
+
+### TASK-069 — `extractor_onboard` skill + a 2nd language extractor
+- **Phase:** P5-B · **Depends on:** TASK-009/012 (C extractor pattern), the onboarding gate (§5.7 `port_check`).
+- **Model:** Opus.
+- **Reads:** `docs/TECH_SPEC.md` §5.7, ADR-001 (tree-sitter), FR-DC-19; `docs/ENV_PRECHECK.md`.
+- **Creates / edits:** `core/skills/extractor_onboard.skill.md`; a 2nd-language extractor frozen with its own `onboarding_manifest`.
+- **Do:** The skill proposes/refines an extractor against a code sample → reviewable artifact for human **freeze**; onboard a 2nd language (e.g. Java/Python) via the same gate. Structural-only, deterministic, **model-free build**; the TASK-010 model fallback covers unonboarded languages meanwhile.
+- **Acceptance:** a 2nd-language extractor onboarded + frozen against an oracle; §10 green; the build stays model-free.
+- **Fixture / proof:** extract a sample repo in the new language; oracle match.
+- **Satisfies:** FR-DC-19.
+
+### TASK-070 — `domain_onboard` skill (propose a new domain's vocabulary)
+- **Phase:** P5-B · **Depends on:** TASK-069 (an untagged `purpose`-only map), D5 (vocabulary contract).
+- **Model:** Opus.
+- **Reads:** ADR-003, FR-DC-20; `vocabulary.payment_brand.yaml` (the shape to propose).
+- **Creates / edits:** `core/skills/domain_onboard.skill.md`.
+- **Do:** Propose a **new** domain's first `vocabulary.<domain>.yaml` from its sample docs + the untagged (`purpose`-only) code-map of a sample repo → reviewable artifact for human freeze (**propose, never bless**).
+- **Acceptance:** given 2nd-domain samples, proposes a `vocabulary.<domain>.yaml` a human can freeze; never auto-blesses; §10.1 containment holds once frozen.
+- **Fixture / proof:** a 2nd-domain sample → proposed vocabulary artifact.
+- **Satisfies:** FR-DC-20.
+
+### TASK-071 — `profile_onboard` skill
+- **Phase:** P5-B · **Depends on:** TASK-070 (a frozen vocabulary).
+- **Model:** Opus.
+- **Reads:** ADR-004, FR-DC-22, FR-BR-08; the `payment_brand` profiles.
+- **Creates / edits:** `core/skills/profile_onboard.skill.md`.
+- **Do:** Route approved tags into profile sections — surface an unconsumed tag, propose a target section `id` + drafted `must_capture`/`probe_if_missing` (`sources` from `emitted_by`; `functional_kind`/`traces_to` for the FRD) → reviewable **profile diff**. Two modes: **bulk** (first whole profile at onboarding) + **incremental** (one tag at drift). Vocabulary-first (§10.1). Build-time amendment, never runtime mutation (§6.6.1).
+- **Acceptance:** an approved-but-unconsumed tag → proposed profile diff a human freezes; no runtime mutation.
+- **Fixture / proof:** an unconsumed tag → proposed profile section.
+- **Satisfies:** FR-DC-22.
+
+### TASK-072 — `adapter_onboard` skill (+ promote `pdf_extract` to `core/skills/`)
+- **Phase:** P5-B · **Depends on:** TASK-070, TASK-071 (frozen vocab + profiles).
+- **Model:** Opus.
+- **Reads:** ADR-005, FR-DC-23, §6.6.3; the TASK-017 F1+3 drift class (`CLAUDE.md`).
+- **Creates / edits:** `core/skills/adapter_onboard.skill.md`; promote `pdf_extract` → `core/skills/`.
+- **Do:** Propose the adapter pack by guided conversation — fixed frame (engine + `code_pipeline → code_map_build`), variable `docs_pipeline`, and **derive each skill's `emits` from the vocabulary's `emitted_by`** so `adapter.yaml` cannot drift from the vocab (kills the F1+3 drift class). Bulk + incremental. Promote domain-agnostic `pdf_extract` into `core/skills/` first. Propose-never-bless; never edits `core/skills/` content beyond the promotion, never runtime-mutates.
+- **Acceptance:** given frozen vocab+profiles, proposes an adapter pack whose `emits` == `emitted_by` by construction; §10.5 no-drift green; `pdf_extract` in `core/skills/`.
+- **Fixture / proof:** a 2nd-domain frozen seam → proposed `adapter.yaml` with zero drift.
+- **Satisfies:** FR-DC-23.
+
+### TASK-073 — Domain-onboarding orchestrator (`onboard.py` + `ONBOARD_INPUT.yaml`)
+- **Phase:** P5-B · **Depends on:** TASK-069..072 (all four helpers), TASK-048 (`build_checks.py`).
+- **Model:** Opus — sequences the authoring chain with hard gates + a registry push.
+- **Reads:** the 5B `onboard.py` design block above; §6.6.1, §10, Appendix B (consume-pull vs author-pull).
+- **Creates / edits:** `core/scripts/onboard.py`, `ONBOARD_INPUT.yaml` (a `UI_INPUT`-shaped envelope with a `mode` discriminator).
+- **Do:** `mode: onboard` authors the registry — **authoring pull** (clone registry → `onboard_dir/`), run the four helpers **in order** with a **human freeze gate at each**, run `build_checks.py` (§10) as a **HARD GATE** (red ⇒ stop, no push), `git commit` + **push to Bitbucket**, **emit the new `registry_sha`**. `mode: run` consumes the registry (unchanged). The push is a **build-time developer git action**, not a runtime mutation; registry stays human-frozen + SHA-pinned.
+- **Acceptance:** a new domain authored end-to-end → §10 green → pushed → `registry_sha` emitted; red §10 ⇒ no push; distinct from `hydrate.py` (consume) pull.
+- **Fixture / proof:** onboard a 2nd domain against a local bare-git registry; `registry_sha` emitted; §10 gate enforced (red blocks push).
+- **Satisfies:** FR-DC-19/20/22/23; answers ADR-005 open-Q #1.
+
+### TASK-074 — Multi-domain enablement (`domains_index.yaml` + UI)
+- **Phase:** P5-B · **Depends on:** TASK-073 (a 2nd domain authored).
+- **Model:** Sonnet.
+- **Reads:** FR-BR-11/14, FR-XS-21, D2; the UI `DOMAINS` list (`PDLCConfigurator.jsx`).
+- **Creates / edits:** `domains_index.yaml`; drive the UI domain dropdown from it.
+- **Do:** Add `domains_index.yaml` (the registered domains) + wire the UI's domain dropdown from it instead of the hardcoded `payment_brand`. Generate hydrates the chosen domain (domain-pruned).
+- **Acceptance:** a 2nd domain appears in the UI + Generates a correctly-pruned scaffold; `payment_brand` unaffected.
+- **Fixture / proof:** a 2-domain index → UI offers both → Generate prunes correctly.
+- **Satisfies:** FR-BR-11/14, FR-XS-21.
+
+### Vocabulary adequacy (L2)
+
+### TASK-075 — `vocab_gap_assess` + amendment loop
+- **Phase:** P5-B · **Depends on:** TASK-013 (L1 detector, in-slice), the `vocab_sha` cache hook.
+- **Model:** Opus.
+- **Reads:** ADR-003, FR-DC-21; the L1 `VOCAB_GAP_FLAG`.
+- **Creates / edits:** `core/skills/vocab_gap_assess.skill.md` + the amendment loop.
+- **Do:** The model half of vocabulary adequacy — a bounded model pass over the **newly-introduced untagged delta** proposes a candidate tag + evidence; human-gated **amendment** → `vocab_sha` bump → re-tag pass. First exercised on the real (VDI) corpus.
+- **Acceptance:** an untagged delta → proposed tag + evidence; human-gated amendment bumps `vocab_sha` + re-tags; never auto-mutates.
+- **Fixture / proof:** a synthetic untagged delta → proposed amendment artifact.
+- **Satisfies:** FR-DC-21.
+
+### Infra / UX (lower priority)
+
+### TASK-076 — Metrics store + dashboard (SQLite)
+- **Phase:** P5-B · **Depends on:** TASK-032 (ledger), `metrics_scan`.
+- **Model:** Sonnet.
+- **Reads:** D8 persistence split; FR-MX-*.
+- **Creates / edits:** a SQLite store + dashboard over the JSONL ledger.
+- **Do:** Promote the JSONL ledger to a queryable store + a metrics dashboard — additive (JSONL stays source of truth).
+- **Acceptance:** ledger events queryable; dashboard renders run metrics; JSONL unchanged.
+- **Fixture / proof:** ingest a run's ledger → dashboard renders.
+- **Satisfies:** FR-MX-*, D8.
+
+### TASK-077 — Auto-launch (operator-gesture automation)
+- **Phase:** P5-B · **Depends on:** the 5A manual-start path (FR-XS-22).
+- **Model:** Sonnet.
+- **Reads:** FR-XS-25 (deferred auto-launch); the overlays' `launch.md`.
+- **Creates / edits:** launch automation beyond the two-step Generate.
+- **Do:** Automate the manual start gesture (open the tool + run `start-brd`) where the environment permits — Claude-only convenience first.
+- **Acceptance:** Generate → run starts without the manual step where allowed; the manual path still works.
+- **Fixture / proof:** an auto-launched run.
+- **Satisfies:** FR-XS-25.
+
+### TASK-078 — UI enhancements (role gating + telemetry surface)
+- **Phase:** P5-B · **Depends on:** TASK-050/051.
+- **Model:** Sonnet.
+- **Reads:** the role-gating FRs; the `GET /runs/{id}/status` endpoint.
+- **Creates / edits:** `app/frontend/` + `app/backend/`.
+- **Do:** Role gating on the configurator + a richer telemetry/metrics surface (live run status, G-gate results).
+- **Acceptance:** roles gate actions; the UI surfaces live ledger status.
+- **Fixture / proof:** a gated action + a live-status view.
+- **Satisfies:** FR-XS-* (UI enhancements).
+
+---
+
 # Build-and-port discipline (reminder)
 
 This repo is the **external Claude Code build**. Do not add VDI/Copilot-air-gap accommodations into these tasks — the port is a separate, later artifact (thin overlay files + `port_check` per §5.7 + the user-scope allow-list runbook per FR-XS-26). Keep the core agent-agnostic; the runtime-tool seam is the only thing the port touches.
