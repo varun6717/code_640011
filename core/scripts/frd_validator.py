@@ -201,7 +201,8 @@ def record_g2(
     from pathlib import Path
 
     locked = lock_version(version, outcome)
-    em = telemetry.Emitter(ledger_dir, run_id=_run_id(ledger_dir), domain="payment_brand", tool="claude")
+    em = telemetry.Emitter(ledger_dir, run_id=_run_id(ledger_dir), domain="payment_brand",
+                           tool=_runtime_tool(ledger_dir))
     em.validation(artifact="frd", score=float(result.score), ts=ts)
     em.gate_decision(gate="G2", outcome=outcome, actor=actor, version=locked, ts=ts)
     telemetry.gate(Path(ledger_dir) / "decisions.jsonl", gate="G2", outcome=outcome,
@@ -214,6 +215,21 @@ def _run_id(ledger_dir) -> str:
     from pathlib import Path
     rs = json.loads((Path(ledger_dir) / "run_state.json").read_text(encoding="utf-8"))
     return rs.get("run_id", "unknown")
+
+
+def _runtime_tool(ledger_dir, default: str = "claude") -> str:
+    """Read ``runtime_tool`` from the run's immutable ``UI_INPUT.yaml`` (written verbatim at
+    Generate — FR-XS-16) so G2 telemetry envelopes carry the run's actual tool (``claude`` |
+    ``copilot``, §8.1 enum) instead of a hardcoded default (TASK-060). Sibling of ``ledger_dir`` —
+    same read pattern as ``_run_id``. Falls back to ``default`` when no UI_INPUT.yaml is present
+    (the standalone proof)."""
+    import yaml
+    from pathlib import Path
+    ui = Path(ledger_dir).parent / "UI_INPUT.yaml"
+    if not ui.exists():
+        return default
+    cfg = yaml.safe_load(ui.read_text(encoding="utf-8")) or {}
+    return cfg.get("runtime_tool") or default
 
 
 # ──────────────────────────────────────────────────────────────────────────────

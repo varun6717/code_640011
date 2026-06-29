@@ -216,7 +216,8 @@ def record_g1(
     import telemetry  # lazy: telemetry/decisions pull in `ledger` (schema I/O)
 
     locked = lock_version(version, outcome)
-    em = telemetry.Emitter(ledger_dir, run_id=_run_id(ledger_dir), domain="payment_brand", tool="claude")
+    em = telemetry.Emitter(ledger_dir, run_id=_run_id(ledger_dir), domain="payment_brand",
+                           tool=_runtime_tool(ledger_dir))
     em.validation(artifact="brd", score=float(result.score), ts=ts)
     em.gate_decision(gate="G1", outcome=outcome, actor=actor, version=locked, ts=ts)
     from pathlib import Path
@@ -232,6 +233,22 @@ def _run_id(ledger_dir) -> str:
     from pathlib import Path
     rs = json.loads((Path(ledger_dir) / "run_state.json").read_text(encoding="utf-8"))
     return rs.get("run_id", "unknown")
+
+
+def _runtime_tool(ledger_dir, default: str = "claude") -> str:
+    """Read ``runtime_tool`` from the run's immutable ``UI_INPUT.yaml`` (written verbatim into the
+    workspace at Generate — FR-XS-16) so G1/G2 telemetry envelopes carry the run's actual tool
+    (``claude`` | ``copilot``, §8.1 enum) instead of a hardcoded default (TASK-060). The validator
+    runs in-session inside the run dir, so UI_INPUT.yaml is ``ledger_dir``'s sibling — same read
+    pattern as ``_run_id``. Falls back to ``default`` when no UI_INPUT.yaml is present (the
+    standalone proof), preserving prior behaviour."""
+    import yaml
+    from pathlib import Path
+    ui = Path(ledger_dir).parent / "UI_INPUT.yaml"
+    if not ui.exists():
+        return default
+    cfg = yaml.safe_load(ui.read_text(encoding="utf-8")) or {}
+    return cfg.get("runtime_tool") or default
 
 
 # ──────────────────────────────────────────────────────────────────────────────
