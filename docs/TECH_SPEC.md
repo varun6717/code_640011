@@ -628,7 +628,7 @@ Per-connector contract: consumes `UI_INPUT.sources[]` entries of its `type` + au
 
 The domain's pre-processing adapter is a **pack** of skills under `profiles/<domain>/adapter/`, declared by `adapter.yaml`. This pack is the swappable domain seam (docs → extract/summarize/classify; code → hand to `code_map_build`). The generic `source_processor` reads `adapter.yaml` to know the run order and routing; it carries no domain knowledge itself.
 
-**Contract.** (a) every skill's `emits` tags ⊆ the domain vocabulary (D5); (b) the pack collectively produces **every `required: true` topic** across `brd_profile` + `frd_profile` (a required topic with no producing skill is a build error); (c) `adapter.yaml`'s emit-map agrees with the vocabulary's "emitted by" column (no drift). Run order is declared per source class (`docs_pipeline` ordered; `code_pipeline` routes to `code_map_build`).
+**Contract.** (a) every skill's `emits` tags ⊆ the domain vocabulary (D5); (b) the pack collectively produces **every `required: true` topic** across `brd_profile` + `frd_profile` (a required topic with no producing skill is a build error); (c) `adapter.yaml`'s emit-map agrees with the vocabulary's "emitted by" column (no drift). Run order is declared per source class (`docs_pipeline` ordered; `code_pipeline` routes to `code_map_build`). **`docs_pipeline` per-type routing (TASK-063B):** `docs_pipeline` may be a **bare list** (legacy form == the `default` lane) **or** a **mapping** keyed by source `type` with a required `default` fallback (e.g. `confluence:` routes Confluence pages to a tag-only lane, distinct from the PDF `default`). Routing is by **source `type`, never `domain`** (D7), and the connector descriptor + manifest-entry shapes are unchanged across lanes (**descriptor parity** — only the *processing* differs). The §10.5 checks below run across the **union** of all variants' emits.
 
 **Schema (normative) + the `payment_brand` instance:**
 
@@ -644,6 +644,20 @@ code_pipeline:                       # code sources route here
 ```
 
 The `emits` sets reproduce the D5 vocabulary "emitted by" mapping; build check **§10.5** cross-checks the two so they cannot drift, and confirms every required topic is covered.
+
+**Per-type routing form (TASK-063B, back-compatible).** The `docs_pipeline` above is a bare list — equivalent to the `default` lane below. To process a doc `type` differently (e.g. a Confluence KB page is HTML, not a PDF, so `pdf_extract` is wrong for it), `docs_pipeline` may instead be a mapping keyed by source `type` with a required `default`:
+
+```yaml
+docs_pipeline:                       # routed by source `type`; bare-list form still valid (== default)
+  default:                           # type: file, sharepoint (PDFs) — the ordered 3-step lane
+    - { skill: pdf_extract,        emits: [] }
+    - { skill: article_summarize,  emits: [brand_rules, message_format, interchange_fees, reporting, mandate, transaction_flow] }
+    - { skill: change_type_assess, emits: [mandate, card_brand, routing, certification, compliance_deadline] }
+  confluence:                        # type: confluence — tag-only KB lane (no extract/summarize/change-type)
+    - { skill: confluence_tag,     emits: [brand_rules, card_brand, message_format, routing, transaction_flow, error_handling] }
+```
+
+`source_processor` selects the lane by `src.type`, falling back to `default`. A new emitting skill (e.g. `confluence_tag`) must be added to the vocabulary's `emitted_by` for each tag it emits (the §10.5 union check enforces this); descriptor parity is preserved — only the processing pipeline differs by type, never the descriptor or manifest shape.
 
 **Where the concrete files are authored.** This subsection fixes the *contracts and homes*. The concrete `payment_brand` instances (`brd_profile`, `frd_profile`, `vocabulary` [already pinned in D5], `adapter.yaml` + the four pack skills, the two slice-1 connectors) are **authored during the build as Chat B pre-tasks**, each gated by the build checks above — not pre-authored in this spec.
 
@@ -832,12 +846,13 @@ FAIL → name the source type with no registered connector.
 
 ```
 load A = profiles/<domain>/adapter/adapter.yaml ; V = vocabulary.<domain>.yaml
-emits(A) = ∪ skill.emits over docs_pipeline + code_pipeline
+emits(A) = ∪ skill.emits over ALL docs_pipeline variants (default + any per-type lane) + code_pipeline
 assert emits(A) ⊆ V                                         # pack emits only known tags
-assert every required:true topic in (brd_profile ∪ frd_profile) ∈ emits(A)   # producing skill exists
-assert emits(A) == V."emitted by" mapping                   # adapter.yaml and vocabulary cannot drift
-assert every adapter.yaml skill file exists under profiles/<domain>/adapter/
-FAIL → name the uncovered required topic, the drifting tag, or the missing skill file.
+assert every required:true topic in (brd_profile ∪ frd_profile) ∈ emits(A)   # produced by SOME reachable lane
+assert emits(A) == V."emitted by" mapping                   # adapter.yaml and vocabulary cannot drift (per-tag, unioned)
+assert every adapter.yaml skill file (across all docs_pipeline variants) exists under profiles/<domain>/adapter/
+assert a docs_pipeline mapping carries a `default` lane                       # routing fallback is required (063B)
+FAIL → name the uncovered required topic, the drifting tag, the missing skill file, or the missing `default`.
 ```
 
 ---

@@ -72,21 +72,26 @@ process_source(src, adapter):                 # src = one UI_INPUT.sources[] ent
   label = src.source or src.type              # the logical source label → partitions context_set/<label>/
   try:
     # ── 1. INGEST — source-type-keyed connector (§6.6.2); NEVER branches on domain ──
-    #    code source  (type: bitbucket) → core/scripts/clone.py    → git clone into repo/ (pin commit_sha)
-    #    doc  source  (type: file)      → core/scripts/ingest_file.py → stage the raw document
-    descriptor = run_connector_for(src.type, src)        # auth via src.auth_ref (seam pointer, FR-DC-12)
+    #    CONVENTION (same as §10.4): resolve the connector from src.type ONLY —
+    #      code source (type: bitbucket) → core/scripts/clone.py          → git clone into repo/ (pin commit_sha)
+    #      doc  source (any other type)  → core/scripts/ingest_<type>.py  → stage the raw content
+    #        e.g. type: file → ingest_file.py · sharepoint → ingest_sharepoint.py · confluence → ingest_confluence.py
+    descriptor = run_connector_for(src.type, src)        # = run core/scripts/ingest_<src.type>.py (or clone.py
+                                                         #   for code); auth via src.auth_ref (seam pointer, FR-DC-12)
 
     # ── 2. ROUTE by source CLASS, drive the pipeline adapter.yaml declares ──
     if is_code_source(src):                              # code → code_pipeline → SHARED core skill (D7)
       hand repo/ to code_map_build (core/skills/code_map_build.skill.md)   # builds code_map.json, cached by commit_sha
       files = []                                         # the code arm builds NO doc manifest entries
       note  = "code_map.json built"
-    else:                                                # doc → docs_pipeline (ORDERED), per adapter.yaml
+    else:                                                # doc → docs_pipeline, ROUTED by src.type (063B)
+      pipeline = select_docs_pipeline(adapter.docs_pipeline, src.type)   # variant by TYPE, else `default`
       entries = []
-      for step in adapter.docs_pipeline:                 # pdf_extract → article_summarize → change_type_assess
+      for step in pipeline:                              # ORDERED; the FIRST step builds the manifest stub
         run the pack skill `step.skill` over this source's staged content
-        # each step enriches the SAME manifest entry: pdf_extract builds the stub (topics: []),
-        # article_summarize + change_type_assess add topics / change_type / descriptor.
+        # default lane: pdf_extract (stub, topics: []) → article_summarize → change_type_assess.
+        # confluence lane: confluence_tag (single step) tags the staged KB page. Each step enriches
+        # the SAME manifest entry; the descriptor SHAPE is identical across lanes (parity).
       files = entries                                    # the §3.2 manifest entries the pipeline built
       note  = None
 
@@ -99,8 +104,20 @@ process_source(src, adapter):                 # src = one UI_INPUT.sources[] ent
 ```
 
 **Run order is `adapter.yaml`'s, not yours.** `docs_pipeline` is **ordered** — run its steps in the
-listed sequence (`pdf_extract` first: it builds the structural stub with `topics: []`; then the two
-taggers enrich the same entry). Code sources route to `code_pipeline`, which points at the **shared**
+listed sequence (the first step builds the manifest stub; later steps enrich the same entry).
+
+**Doc-pipeline routing — by source `type`, never `domain` (063B).** Within the doc class, pick the
+pipeline variant with `select_docs_pipeline(adapter.docs_pipeline, src.type)`:
+
+- `docs_pipeline` is a **bare list** → that list is the pipeline (legacy form == the `default` lane).
+- `docs_pipeline` is a **mapping** keyed by source `type` → use `docs_pipeline[src.type]` if that key
+  exists, else fall back to the **required** `docs_pipeline['default']`. (e.g. `type: file`/`sharepoint`
+  → `default` = `pdf_extract → article_summarize → change_type_assess`; `type: confluence` →
+  `[confluence_tag]`.)
+
+You route by **`src.type`** only — **never** by `domain` (D7). Descriptor parity is **preserved**: only
+the *processing* pipeline differs by type; the connector's descriptor shape and the manifest-entry shape
+never change. Code sources route to `code_pipeline`, which points at the **shared**
 `core/skills/code_map_build.skill.md` — code processing never varies by domain (D7), so it is referenced,
 not copied into the pack.
 
@@ -165,8 +182,10 @@ repo/                                  # ← the code source cloned here by clon
 - **Always** write exactly one `context_set/<source>/_slice.json` per source — the binding contract above.
 - Read `adapter.yaml` for run order + routing **only**; never branch on `domain` (D7).
 - Assign no tags yourself (`emits: []`) — `topics` carry whatever the pack skills assigned.
-- Route by source **type** to the connector (code → `clone.py`, file → `ingest_file.py`) and by source
-  **class** to the pipeline (`docs_pipeline` ordered; code → `code_pipeline` → `code_map_build`).
+- Route by source **type** to the connector (`code → clone.py`; otherwise `ingest_<type>.py` — e.g.
+  `file → ingest_file.py`, `sharepoint → ingest_sharepoint.py`, `confluence → ingest_confluence.py`) and by
+  source **class** to the pipeline (doc → `docs_pipeline`, routed by `src.type` to its lane / `default`;
+  code → `code_pipeline` → `code_map_build`).
 - `auth_ref` is a seam **pointer**; never read or write a raw secret (FR-DC-12).
 
 ## Boundaries

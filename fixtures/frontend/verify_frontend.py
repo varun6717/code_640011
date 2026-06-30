@@ -87,12 +87,14 @@ def main() -> int:
           "gates.score_threshold coerced to int 85")
     check("jira" not in config, "jira omitted — deferred this slice")
 
-    print("\nSources: 5A-live only (Confluence + Lucid deferred):")
+    print("\nSources: SharePoint + Bitbucket + Confluence (5B); Lucid still deferred:")
     types = [s["type"] for s in config.get("sources", [])]
-    check(types == ["sharepoint", "bitbucket"],
-          f"sources = sharepoint + bitbucket only (got {types})")
-    check("confluence" not in types and "lucid" not in types,
-          "Confluence + Lucid NOT emitted (shown in UI but deferred to 5B)")
+    check(types == ["sharepoint", "bitbucket", "confluence"],
+          f"sources = sharepoint + bitbucket + confluence (got {types})")
+    cf = next((s for s in config["sources"] if s["type"] == "confluence"), None)
+    check(cf is not None and cf.get("auth_ref") == "jpmc_adapters:confluence" and cf.get("url"),
+          "Confluence emitted with url + auth_ref pointer (TASK-063B)")
+    check("lucid" not in types, "Lucid NOT emitted (shown in UI but still deferred)")
     sp = next(s for s in config["sources"] if s["type"] == "sharepoint")
     bb = next(s for s in config["sources"] if s["type"] == "bitbucket")
     check(sp.get("auth_ref") == "jpmc_adapters:sharepoint"

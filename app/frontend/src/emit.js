@@ -12,8 +12,9 @@
  *   - frame.title   — seeded from project_name (§3.1: project_name "also seeds frame.title").
  *   - auth_ref      — injected per source type at emit; the operator never enters a secret
  *                     (§7, FR-DC-12). Pointer only.
- *   - sources       — only the 5A-live connectors (SharePoint PDF, Bitbucket code) are emitted.
- *                     Confluence + Lucid are shown in the UI but deferred (5B) — never emitted.
+ *   - sources       — SharePoint PDF, Bitbucket code, and Confluence KB pages (TASK-063B) are
+ *                     emitted; one Confluence link = one type:confluence source. Lucid is still
+ *                     shown in the UI but deferred — never emitted.
  *   - jira          — omitted; deferred this slice (BRD → FRD only).
  */
 
@@ -25,6 +26,7 @@ export const DEFAULT_REGISTRY_SHA = "7d2e9a1";
 const AUTH_REF = {
   sharepoint: "jpmc_adapters:sharepoint",
   bitbucket: "jpmc_adapters:bitbucket",
+  confluence: "jpmc_adapters:confluence",
 };
 
 const trimmed = (x) => (x ?? "").toString().trim();
@@ -51,6 +53,13 @@ export function buildConfig(form, { registrySha = DEFAULT_REGISTRY_SHA } = {}) {
       src.auth_ref = AUTH_REF.bitbucket;
       sources.push(src);
     }
+  }
+
+  // Confluence KB page sources → type:confluence (ingest_confluence.py, TASK-063). One link = one
+  // page, exactly like a PDF; each emits its own source so the orchestrator fans out per page.
+  for (const it of form.confluence ?? []) {
+    const url = trimmed(it.url);
+    if (url) sources.push({ type: "confluence", url, auth_ref: AUTH_REF.confluence });
   }
 
   // Registry repo is optional in the UI: when given, the operator points Generate at a live

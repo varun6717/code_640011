@@ -73,13 +73,31 @@ def profile_topics(path: str | Path) -> dict[str, list[str]]:
     return {t: sorted(set(locs)) for t, locs in out.items()}
 
 
+def _pipeline_step_lists(data: Mapping) -> list[list]:
+    """Every ordered step-list in an ``adapter.yaml``: bare top-level lists (``code_pipeline``,
+    and a bare-list ``docs_pipeline``) AND the per-type variant lists inside a routed
+    ``docs_pipeline`` mapping (``{default: [...], <type>: [...]}``, TASK-063B). Scalars like
+    ``domain:`` are skipped. Back-compatible — a bare list is still one pipeline."""
+    lists: list[list] = []
+    for val in data.values():
+        if isinstance(val, list):
+            lists.append(val)
+        elif isinstance(val, Mapping):                # routed docs_pipeline: union all variants
+            for sub in val.values():
+                if isinstance(sub, list):
+                    lists.append(sub)
+    return lists
+
+
 def adapter_emit_tags(path: str | Path) -> dict[str, list[str]]:
-    """Map each tag in any pipeline skill's ``emits`` → the skills that emit it."""
+    """Map each tag in any pipeline skill's ``emits`` → the skills that emit it.
+
+    Unions across every pipeline AND every per-type variant of a routed ``docs_pipeline``
+    (TASK-063B): a bare list is the legacy ``default`` form; a mapping keyed by source type
+    contributes all variants' ``emits`` to the union, so §10.1/§10.5 see every producer."""
     data = yaml.safe_load(Path(path).read_text()) or {}
     out: dict[str, list[str]] = {}
-    for key, pipeline in data.items():
-        if not isinstance(pipeline, list):
-            continue                                  # skip scalars like `domain:`
+    for pipeline in _pipeline_step_lists(data):
         for step in pipeline:
             if not isinstance(step, Mapping):
                 continue

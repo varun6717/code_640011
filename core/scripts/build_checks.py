@@ -174,9 +174,19 @@ def check_adapter_coverage(domain: str = "payment_brand", *,
 
     # (d) every adapter skill file exists. docs_pipeline skills live in the pack dir;
     #     code_pipeline skills are the SHARED core skill (referenced, not copied — D7).
-    for step in A.get("docs_pipeline") or []:
-        skill = step.get("skill")
-        if skill and not (pdir / "adapter" / f"{skill}.skill.md").exists():
+    #     docs_pipeline may be a bare list (legacy = `default`) or a per-type mapping (TASK-063B);
+    #     a mapping MUST carry a `default` fallback. Skills are checked across all variants.
+    docs = A.get("docs_pipeline")
+    if isinstance(docs, dict):
+        if "default" not in docs:
+            violations.append("docs_pipeline mapping must include a `default` pipeline (TASK-063B)")
+        docs_variants = list(docs.values())
+    else:
+        docs_variants = [docs or []]
+    docs_skills = {step.get("skill") for variant in docs_variants for step in (variant or [])
+                   if isinstance(step, dict) and step.get("skill")}
+    for skill in sorted(docs_skills):
+        if not (pdir / "adapter" / f"{skill}.skill.md").exists():
             violations.append(f"missing docs_pipeline skill file: adapter/{skill}.skill.md")
     for step in A.get("code_pipeline") or []:
         skill = step.get("skill")

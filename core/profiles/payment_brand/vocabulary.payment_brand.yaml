@@ -28,7 +28,8 @@
 #
 # Reserved version header (ADR-003, additive — matches onboarding_manifest.yaml).
 domain: payment_brand
-vocab_sha: d5frozen-r2               # r2: +code_map_build on card_brand & message_format (TASK-017)
+vocab_sha: d5frozen-r3               # r2: +code_map_build on card_brand & message_format (TASK-017);
+                                     # r3: +confluence_tag on the 6 KB tags (TASK-063B docs_pipeline confluence lane)
 schema_version: 1
 
 # Each tag carries D5's four columns verbatim: definition, emitted_by (adapter skill),
@@ -45,7 +46,8 @@ tags:
 
   brand_rules:
     definition: "Brand technical/operational rules constraining implementation"
-    emitted_by: [article_summarize]
+    # r3 (TASK-063B): +confluence_tag — the confluence docs_pipeline lane emits it (KB describes brand rules).
+    emitted_by: [article_summarize, confluence_tag]
     consumed_by: ["BRD business_context", "FRD system_behavior"]
     code_tag: false
 
@@ -53,13 +55,15 @@ tags:
     definition: "Which card brand(s) the work concerns"
     # r2 (TASK-017, Class 2): +code_map_build — code_tag:true and code_map_build (CODE_MAP_TAGS)
     # emits it; this column had dropped it. Now matches adapter.yaml code_pipeline.
-    emitted_by: [change_type_assess, code_map_build]
+    # r3 (TASK-063B): +confluence_tag — the confluence lane emits it (KB names card brands).
+    emitted_by: [change_type_assess, code_map_build, confluence_tag]
     consumed_by: ["BRD scope", "code routing"]
     code_tag: true
 
   routing:
     definition: "Transaction routing to brand handlers"
-    emitted_by: [change_type_assess, code_map_build]
+    # r3 (TASK-063B): +confluence_tag — the confluence lane emits it (KB describes routing).
+    emitted_by: [change_type_assess, code_map_build, confluence_tag]
     consumed_by: ["BRD/FRD routing_behavior"]
     code_tag: true
 
@@ -67,7 +71,8 @@ tags:
     definition: "Message/wire formats and field-level changes"
     # r2 (TASK-017, Class 2): +code_map_build — code_tag:true and code_map_build (CODE_MAP_TAGS)
     # emits it; this column had dropped it. Now matches adapter.yaml code_pipeline.
-    emitted_by: [article_summarize, code_map_build]
+    # r3 (TASK-063B): +confluence_tag — the confluence lane emits it (KB documents message formats).
+    emitted_by: [article_summarize, code_map_build, confluence_tag]
     consumed_by: ["FRD data_contracts"]
     code_tag: true
 
@@ -85,13 +90,16 @@ tags:
 
   transaction_flow:
     definition: "End-to-end transaction lifecycle steps"
-    emitted_by: [article_summarize, code_map_build]
+    # r3 (TASK-063B): +confluence_tag — the confluence lane emits it (KB describes the txn flow).
+    emitted_by: [article_summarize, code_map_build, confluence_tag]
     consumed_by: ["FRD actor_flows"]
     code_tag: true
 
   error_handling:
     definition: "Failure modes, error codes, retry/fallback"
-    emitted_by: [code_map_build]
+    # r3 (TASK-063B): +confluence_tag — was code-only; the confluence lane now also emits it
+    # (KB describes failure modes / error codes / fallback). Confirmed against the KB fixture.
+    emitted_by: [code_map_build, confluence_tag]
     consumed_by: ["FRD error_states"]
     code_tag: true
 

@@ -30,10 +30,19 @@
 
 domain: payment_brand                # PBI — Payment Brand
 
-docs_pipeline:                       # ORDERED; runs per non-code (document) source
-  - { skill: pdf_extract,        emits: [] }                                              # structural extraction; NO tags
-  - { skill: article_summarize,  emits: [brand_rules, message_format, interchange_fees, reporting, mandate, transaction_flow] }  # +mandate (F1), +transaction_flow — Class 1
-  - { skill: change_type_assess, emits: [mandate, card_brand, routing, certification, compliance_deadline] }
+docs_pipeline:                       # ORDERED per variant; routed by source `type` (TASK-063B).
+                                     # Either form is valid: a BARE LIST (legacy) == the `default`
+                                     # lane; or a MAPPING keyed by source type with a required
+                                     # `default` fallback. Routes by TYPE, never `domain` (D7).
+  default:                           # PDFs / files (type: file, sharepoint) — the original 3-step lane
+    - { skill: pdf_extract,        emits: [] }                                              # structural extraction; NO tags
+    - { skill: article_summarize,  emits: [brand_rules, message_format, interchange_fees, reporting, mandate, transaction_flow] }  # +mandate (F1), +transaction_flow — Class 1
+    - { skill: change_type_assess, emits: [mandate, card_brand, routing, certification, compliance_deadline] }
+  confluence:                        # Confluence KB pages (type: confluence) — TAG-ONLY (TASK-063B).
+                                     # No pdf_extract (already text), no article_summarize (a KB is
+                                     # reference, not an article), no change_type_assess (steady-state,
+                                     # not a change). One skill reads the staged page and tags it.
+    - { skill: confluence_tag,     emits: [brand_rules, card_brand, message_format, routing, transaction_flow, error_handling] }
 
 code_pipeline:                       # code sources route to the SHARED core skill (D7); not copied into the pack
   - { skill: code_map_build,     emits: [routing, settlement, transaction_flow, error_handling, message_format, card_brand] }

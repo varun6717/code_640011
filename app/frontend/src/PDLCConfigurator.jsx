@@ -331,8 +331,7 @@ export default function PDLCConfigurator(){
             <SourceRow type="bitbucket" name="Bitbucket — Code Repo (Stratus)" bitbucket ph="https://bitbucket.jpmc.net/scm/pbi/merchant-routing-svc.git"
               items={f.code} onItem={(i,k,v)=>setItem("code",i,k,v)} onAdd={()=>addItem("code",{seal:"",url:"",branch:""})} onRemove={i=>rmItem("code",i)}/>
             <SourceRow type="confluence" name="Confluence" ph="https://confluence.jpmc.net/display/PBI/Discover"
-              items={f.confluence} onItem={(i,k,v)=>setItem("confluence",i,k,v)} onAdd={()=>addItem("confluence",{url:""})} onRemove={i=>rmItem("confluence",i)}
-              deferred badge="5B — deferred"/>
+              items={f.confluence} onItem={(i,k,v)=>setItem("confluence",i,k,v)} onAdd={()=>addItem("confluence",{url:""})} onRemove={i=>rmItem("confluence",i)}/>
             <SourceRow type="lucid" name="Lucid" ph="https://lucid.app/lucidchart/…"
               items={f.lucid} onItem={(i,k,v)=>setItem("lucid",i,k,v)} onAdd={()=>addItem("lucid",{url:""})} onRemove={i=>rmItem("lucid",i)}
               deferred badge="5B — deferred"/>
