@@ -22,8 +22,9 @@
 #     these two (it lists it for the other four code tags). Added below. [Class 2]
 #   • mandate, transaction_flow — this column was already correct (both list a doc skill
 #     the §6.6.3 adapter omitted); adapter.yaml was aligned to THIS instead. [Class 1]
-# NOTE for the port: the D5 table in REQUIREMENTS.md carries the same card_brand/
-# message_format gap — reconcile D5 itself there. `vocab_sha` bumped d5frozen → d5frozen-r2.
+# NOTE for the port: the external REQUIREMENTS.md D5 table is now reconciled to this column
+# (TASK-061 added code_map_build to card_brand/message_format) — carry the same fix into the
+# JPMC-side D5 at port. `vocab_sha` bumped d5frozen → d5frozen-r2.
 #
 # Reserved version header (ADR-003, additive — matches onboarding_manifest.yaml).
 domain: payment_brand

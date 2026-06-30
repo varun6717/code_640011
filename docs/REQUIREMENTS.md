@@ -294,9 +294,9 @@ Notes:
 |-----|------------|----------------------------|-------------|-----------|
 | `mandate` | The originating brand mandate, its ID and compliance deadline | `change_type_assess`, `article_summarize` | BRD business_context | no |
 | `brand_rules` | Brand technical/operational rules constraining implementation | `article_summarize` | BRD business_context, FRD system_behavior | no |
-| `card_brand` | Which card brand(s) the work concerns | `change_type_assess` | BRD scope, code routing | yes |
+| `card_brand` | Which card brand(s) the work concerns | `change_type_assess`, `code_map_build` | BRD scope, code routing | yes |
 | `routing` | Transaction routing to brand handlers | `change_type_assess`, `code_map_build` | BRD/FRD routing_behavior | yes |
-| `message_format` | Message/wire formats and field-level changes | `article_summarize` | FRD data_contracts | yes |
+| `message_format` | Message/wire formats and field-level changes | `article_summarize`, `code_map_build` | FRD data_contracts | yes |
 | `certification` | Brand certification / conformance requirements | `change_type_assess` | BRD requirements, FRD nfrs | no |
 | `settlement` | Settlement / reconciliation behavior | `code_map_build` | BRD change-impact, FRD system_behavior | yes |
 | `transaction_flow` | End-to-end transaction lifecycle steps | `article_summarize`, `code_map_build` | FRD actor_flows | yes |

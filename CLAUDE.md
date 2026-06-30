@@ -67,7 +67,7 @@ Durable state lives in **files and git**, never in the conversation. Never rely 
 - **Class 1 (vocabulary right → fixed `adapter.yaml`):** `mandate` (F1) and `transaction_flow` — `article_summarize.emits` now includes both (§6.6.3 had omitted them).
 - **Class 2 (code skill right → fixed vocabulary, r2):** `card_brand`, `message_format` — `emitted_by` gained `code_map_build` (both are `code_tag: true` and in `CODE_MAP_TAGS`; the column had dropped it for these two). `vocab_sha` bumped `d5frozen → d5frozen-r2`.
 
-All 12 per-tag mappings now match; §10.5 verified green at TASK-017 (re-gated at TASK-021). **Port note:** the D5 table in `docs/REQUIREMENTS.md` still carries the same `card_brand`/`message_format` gap — reconcile D5 itself at port time.
+All 12 per-tag mappings now match; §10.5 verified green at TASK-017 (re-gated at TASK-021). **Port note:** the external `docs/REQUIREMENTS.md` D5 table is now reconciled (TASK-061 added `code_map_build` to `card_brand`/`message_format`) — carry the same fix into the JPMC-side D5 at port time.
 
 ---
 
