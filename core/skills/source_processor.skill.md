@@ -46,14 +46,14 @@ gap (D8c keeps partials).
 ### 3 — You carry no domain knowledge (D7); `adapter.yaml` carries the routing
 You never branch on `domain`. You read `adapter.yaml` purely for **mechanics**: which connector keys off
 the source `type`, and which ordered pipeline (`docs_pipeline` vs `code_pipeline`) the source class
-routes to. Every tag, every `change_type`, every summary is produced by a **pack skill** you invoke —
+routes to. Every tag and every summary is produced by a **pack skill** you invoke —
 the tags you write to `topics` are whatever those skills assigned, never anything you decided. A new
 domain is "write one more adapter pack"; **you do not change** (FR-XS-01).
 
 ### 4 — You stage and route; you do not author meaning
 You ingest (call the connector) and you drive the pipeline (call the pack skills in order). You do **not**
 extract, summarize, classify, or tag yourself (`emits: []`). The manifest entries in your slice are built
-by the pack skills (`pdf_extract → article_summarize → change_type_assess`) or, for code, by
+by the pack skills (`pdf_extract → article_summarize`) or, for code, by
 `code_map_build`. You collect their output into one slice and write it.
 
 ## What you are handed (your input)
@@ -89,7 +89,7 @@ process_source(src, adapter):                 # src = one UI_INPUT.sources[] ent
       entries = []
       for step in pipeline:                              # ORDERED; the FIRST step builds the manifest stub
         run the pack skill `step.skill` over this source's staged content
-        # default lane: pdf_extract (stub, topics: []) → article_summarize → change_type_assess.
+        # default lane: pdf_extract (stub, topics: []) → article_summarize (sole tagger).
         # confluence lane: confluence_tag (single step) tags the staged KB page. Each step enriches
         # the SAME manifest entry; the descriptor SHAPE is identical across lanes (parity).
       files = entries                                    # the §3.2 manifest entries the pipeline built
@@ -112,7 +112,7 @@ pipeline variant with `select_docs_pipeline(adapter.docs_pipeline, src.type)`:
 - `docs_pipeline` is a **bare list** → that list is the pipeline (legacy form == the `default` lane).
 - `docs_pipeline` is a **mapping** keyed by source `type` → use `docs_pipeline[src.type]` if that key
   exists, else fall back to the **required** `docs_pipeline['default']`. (e.g. `type: file`/`sharepoint`
-  → `default` = `pdf_extract → article_summarize → change_type_assess`; `type: confluence` →
+  → `default` = `pdf_extract → article_summarize`; `type: confluence` →
   `[confluence_tag]`.)
 
 You route by **`src.type`** only — **never** by `domain` (D7). Descriptor parity is **preserved**: only
@@ -144,7 +144,7 @@ with this shape — `merge_manifest.py` already consumes it; do **not** invent a
 ```
 
 - **Doc arm** — `files[]` is the list of §3.2 manifest entries the `docs_pipeline` built, each with
-  `path, source, url, ingest_ts, adapter, change_type, topics, descriptor`. `note` usually absent.
+  `path, source, url, ingest_ts, adapter, topics, descriptor`. `note` usually absent.
 - **Code arm** — typically `files: []` plus `note: "code_map.json built"` (the code map is its own
   artifact, keyed by `commit_sha`; it is **not** a doc manifest entry).
 - **Failed source** — still writes a slice: `status: "failed"` + a `reason`, with `files` holding any
@@ -192,8 +192,8 @@ repo/                                  # ← the code source cloned here by clon
 
 - Does **not** assemble `index.json` — that is `merge_manifest.py`'s deterministic fan-in (§3.2), run by
   the orchestrator after all workers return.
-- Does **not** extract / summarize / classify / tag — those are the pack skills (`pdf_extract`,
-  `article_summarize`, `change_type_assess`) and `code_map_build`.
+- Does **not** extract / summarize / tag — those are the pack skills (`pdf_extract`,
+  `article_summarize`) and `code_map_build`.
 - Does **not** build the code map — it hands `repo/` to `code_map_build` (the shared core skill) and
   records the handoff in its slice.
 - Does **not** author BRD/FRD content or make any gate decision — that is Layer 2+.

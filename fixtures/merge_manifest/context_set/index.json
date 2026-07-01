@@ -8,8 +8,7 @@
       "source": "confluence",
       "url": "https://confluence.jpmc.net/display/PBI/Discover",
       "ingest_ts": "2026-06-22T11:31:02Z",
-      "adapter": "change_type_assess",
-      "change_type": "new",
+      "adapter": "article_summarize",
       "topics": [
         "mandate",
         "compliance_deadline"
@@ -21,8 +20,7 @@
       "source": "confluence",
       "url": "https://confluence.jpmc.net/display/PBI/Zeta",
       "ingest_ts": "2026-06-22T11:02:00Z",
-      "adapter": "change_type_assess",
-      "change_type": "update",
+      "adapter": "article_summarize",
       "topics": [
         "routing",
         "card_brand"

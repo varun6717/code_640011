@@ -5,7 +5,7 @@ Generic and **source-type-keyed** (D7 / FR-DC-11): the connector for ``type: sha
 document sources — a SharePoint URL to a raw document (a PDF). It pulls the document through
 the auth seam, **stages** it into the run's source area, and emits the **same** source
 descriptor shape as ``ingest_file.py`` so the downstream pipeline
-(``pdf_extract → article_summarize → change_type_assess``) is unchanged (FR-XS-01). It
+(``pdf_extract → article_summarize``) is unchanged (FR-XS-01). It
 assigns **no meaning** — staging only; tagging is the adapter pack's job downstream.
 
 Contract (§6.6.2) — identical descriptor shape to ``ingest_file.py``:

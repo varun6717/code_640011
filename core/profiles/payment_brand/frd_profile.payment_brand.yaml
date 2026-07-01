@@ -63,7 +63,7 @@ sections:
 
   # ── system_behaviors (baseline override) — routing / brand-rule / settlement logic ──
   # Carries forward the file/function detail from the BRD code-impact work (FR-FR-03).
-  # routing emitted_by [change_type_assess (doc), code_map_build (code)]; brand_rules
+  # routing emitted_by [article_summarize (doc), code_map_build (code)]; brand_rules
   # [article_summarize (doc)]; settlement [code_map_build (code)] → union doc+code.
   - id: system_behaviors
     functional_kind: system_behavior
@@ -118,7 +118,7 @@ sections:
         required: true
 
   # ── nfrs (baseline override) — certification as a measurable conformance target ──
-  # certification emitted_by [change_type_assess (doc)] → doc. functional_kind nfr ⇒ §9.3
+  # certification emitted_by [article_summarize (doc)] → doc. functional_kind nfr ⇒ §9.3
   # requires a MEASURABLE TARGET (not acceptance criteria); must_capture states it.
   - id: nfrs
     functional_kind: nfr

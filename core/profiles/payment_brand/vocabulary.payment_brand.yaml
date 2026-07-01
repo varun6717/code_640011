@@ -28,8 +28,11 @@
 #
 # Reserved version header (ADR-003, additive — matches onboarding_manifest.yaml).
 domain: payment_brand
-vocab_sha: d5frozen-r3               # r2: +code_map_build on card_brand & message_format (TASK-017);
-                                     # r3: +confluence_tag on the 6 KB tags (TASK-063B docs_pipeline confluence lane)
+vocab_sha: d5frozen-r4               # r2: +code_map_build on card_brand & message_format (TASK-017);
+                                     # r3: +confluence_tag on the 6 KB tags (TASK-063B docs_pipeline confluence lane);
+                                     # r4: change_type_assess REMOVED — its 5 doc tags re-homed to article_summarize
+                                     #     (mandate, card_brand, routing, certification, compliance_deadline); the
+                                     #     change_type field is dropped entirely. See notes/change_type_removal.md.
 schema_version: 1
 
 # Each tag carries D5's four columns verbatim: definition, emitted_by (adapter skill),
@@ -37,10 +40,9 @@ schema_version: 1
 tags:
   mandate:
     definition: "The originating brand mandate, its ID and compliance deadline"
-    # F1 RESOLVED (TASK-017, V-approved, Class 1): D5/this column is authoritative — mandate
-    # is emitted by BOTH skills. §6.6.3's adapter omitted article_summarize; adapter.yaml was
-    # aligned to THIS (article_summarize now emits mandate). No vocab change for mandate.
-    emitted_by: [change_type_assess, article_summarize]
+    # F1 RESOLVED (TASK-017, V-approved, Class 1): mandate was emitted by BOTH skills.
+    # r4: change_type_assess removed — article_summarize is now the sole doc emitter.
+    emitted_by: [article_summarize]
     consumed_by: ["BRD business_context"]
     code_tag: false
 
@@ -56,14 +58,16 @@ tags:
     # r2 (TASK-017, Class 2): +code_map_build — code_tag:true and code_map_build (CODE_MAP_TAGS)
     # emits it; this column had dropped it. Now matches adapter.yaml code_pipeline.
     # r3 (TASK-063B): +confluence_tag — the confluence lane emits it (KB names card brands).
-    emitted_by: [change_type_assess, code_map_build, confluence_tag]
+    # r4: change_type_assess → article_summarize (its doc-side emission re-homed).
+    emitted_by: [article_summarize, code_map_build, confluence_tag]
     consumed_by: ["BRD scope", "code routing"]
     code_tag: true
 
   routing:
     definition: "Transaction routing to brand handlers"
     # r3 (TASK-063B): +confluence_tag — the confluence lane emits it (KB describes routing).
-    emitted_by: [change_type_assess, code_map_build, confluence_tag]
+    # r4: change_type_assess → article_summarize (its doc-side emission re-homed).
+    emitted_by: [article_summarize, code_map_build, confluence_tag]
     consumed_by: ["BRD/FRD routing_behavior"]
     code_tag: true
 
@@ -78,7 +82,8 @@ tags:
 
   certification:
     definition: "Brand certification / conformance requirements"
-    emitted_by: [change_type_assess]
+    # r4: change_type_assess removed — re-homed to article_summarize (sole doc emitter).
+    emitted_by: [article_summarize]
     consumed_by: ["BRD requirements", "FRD nfrs"]
     code_tag: false
 
@@ -117,6 +122,7 @@ tags:
 
   compliance_deadline:
     definition: "The hard date(s) the work must meet"
-    emitted_by: [change_type_assess]
+    # r4: change_type_assess removed — re-homed to article_summarize (sole doc emitter).
+    emitted_by: [article_summarize]
     consumed_by: ["BRD constraints_assumptions"]
     code_tag: false

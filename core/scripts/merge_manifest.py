@@ -35,7 +35,7 @@ with this shape::
     }
 
 Each entry in ``files[]`` is a §3.2 manifest entry the adapter pipeline built
-(``path``, ``source``, ``url``, ``ingest_ts``, ``adapter``, ``change_type``, ``topics``,
+(``path``, ``source``, ``url``, ``ingest_ts``, ``adapter``, ``topics``,
 ``descriptor`` — the doc arm; a code source typically carries no doc entries and instead
 sets ``note``). This script does not author or mutate entries; it passes them through with
 a canonical, deterministic key order.
@@ -68,7 +68,7 @@ from pathlib import Path
 # Canonical key order for a §3.2 manifest entry. Known fields emit in this order; any
 # extra fields a future adapter adds are appended in sorted order (still deterministic).
 _ENTRY_FIELD_ORDER = (
-    "path", "source", "url", "ingest_ts", "adapter", "change_type", "topics", "descriptor",
+    "path", "source", "url", "ingest_ts", "adapter", "topics", "descriptor",
 )
 
 # Canonical key order for a sources_status row (matches the §3.2 example shape).

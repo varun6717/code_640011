@@ -5,7 +5,7 @@ Proves the additive per-type routing of `adapter.yaml`'s `docs_pipeline` (§6.6.
 
   1. **Two doc types → two distinct ordered pipelines.** `type: confluence` routes to the
      `[confluence_tag]` lane; `type: file`/`sharepoint` (and any unknown type) fall back to the
-     `default` lane (`pdf_extract → article_summarize → change_type_assess`).
+     `default` lane (`pdf_extract → article_summarize`).
   2. **Back-compat (parses identically).** A **bare-list** `docs_pipeline` (legacy form) produces
      the *exact same* emit-map as the equivalent `{default: <list>}` mapping — every existing pack
      stays valid byte-for-byte.
@@ -63,8 +63,8 @@ def main() -> int:
     conf = _skills(select_docs_pipeline(docs, "confluence"))
     default = _skills(select_docs_pipeline(docs, "file"))
     _check("confluence lane is the tag-only [confluence_tag]", conf == ["confluence_tag"])
-    _check("default lane is the ordered 3-step PDF pipeline",
-           default == ["pdf_extract", "article_summarize", "change_type_assess"])
+    _check("default lane is the ordered 2-step PDF pipeline (extract + sole tagger)",
+           default == ["pdf_extract", "article_summarize"])
     _check("confluence and default are DISTINCT pipelines", conf != default)
     _check("sharepoint falls back to default", _skills(select_docs_pipeline(docs, "sharepoint")) == default)
     _check("unknown type falls back to default", _skills(select_docs_pipeline(docs, "lucid")) == default)

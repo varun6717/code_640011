@@ -76,7 +76,7 @@ registry/
         vocabulary.payment_brand.yaml
         adapter/                    # domain pre-processing pack (the swappable domain seam)
           adapter.yaml              # pack manifest: skills + run order + emit-tags (§6.6.3)
-          pdf_extract.skill.md  article_summarize.skill.md  change_type_assess.skill.md
+          pdf_extract.skill.md  article_summarize.skill.md  confluence_tag.skill.md
     templates/                      # DOMAIN SEAM
       payment_brand/
         jira_template.payment_brand.yaml
@@ -194,7 +194,6 @@ Always loaded by authoring agents; selective read routes off it. Assembled deter
       "url": "https://confluence.jpmc.net/display/PBI/Discover",
       "ingest_ts": "2026-06-16T13:31:02Z",
       "adapter": "article_summarize",
-      "change_type": "new",
       "topics": ["mandate", "compliance_deadline"],
       "descriptor": "Discover routing mandate; ID DSC-2231; deadline 2026-09-30"
     }
@@ -359,7 +358,7 @@ Markdown (model-read + human-read). Section order = the merged baseline+profile 
 | Layer | Agent (executor — how it runs) | Skill / module it runs | Consumes | Produces / delegates | Domain input | Gate |
 |-------|-------------------------------|------------------------|----------|----------------------|--------------|------|
 | 1 | `source_processor` **subagent** (×N parallel) invokes the connector | ingestion connector `core/scripts/ingest_<type>.py` (code → `clone.py`) — source-type keyed | `UI_INPUT.sources` + auth (seam) | raw content; code → `git clone` to `repo/` | — (source-type keyed) | — |
-| 1 | `source_processor` **subagent** runs the domain adapter (code → hands to `code_map_build`) | domain adapter skills `profiles/<domain>/adapter/*.skill.md` (`pdf_extract`, `article_summarize`, `change_type_assess`) | raw content | `context_set/` slices + manifest entries | `profiles/<domain>/adapter` (**domain seam**) | — |
+| 1 | `source_processor` **subagent** runs the domain adapter (code → hands to `code_map_build`) | domain adapter skills `profiles/<domain>/adapter/*.skill.md` (`pdf_extract`, `article_summarize`; `confluence_tag` for KB pages) | raw content | `context_set/` slices + manifest entries | `profiles/<domain>/adapter` (**domain seam**) | — |
 | 1 | `source_processor` — **worker subagent**, spawned by orchestrator | `core/skills/source_processor.skill.md` | one source | that source's slice + manifest entries | — | — |
 | 1 | `code_map_build` — **worker subagent** (spawned for the code source) | `core/skills/code_map_build.skill.md`; *calls* the **frozen extractor** `core/extractors/<lang>_extractor.py` (a tool, not a skill) | `repo/` + frozen extractor | `code_map.json` (cached by `commit_sha`) | vocabulary (tags) | — |
 | 1 | **script (no agent)** — called by orchestrator after fan-out | `core/scripts/merge_manifest.py` | per-source entries | `index.json` (deterministic fan-in) | — | — |
@@ -626,7 +625,7 @@ Per-connector contract: consumes `UI_INPUT.sources[]` entries of its `type` + au
 
 #### 6.6.3 Adapter pack contract + `adapter.yaml` (the domain pre-processing seam)
 
-The domain's pre-processing adapter is a **pack** of skills under `profiles/<domain>/adapter/`, declared by `adapter.yaml`. This pack is the swappable domain seam (docs → extract/summarize/classify; code → hand to `code_map_build`). The generic `source_processor` reads `adapter.yaml` to know the run order and routing; it carries no domain knowledge itself.
+The domain's pre-processing adapter is a **pack** of skills under `profiles/<domain>/adapter/`, declared by `adapter.yaml`. This pack is the swappable domain seam (docs → extract then tag; code → hand to `code_map_build`). The generic `source_processor` reads `adapter.yaml` to know the run order and routing; it carries no domain knowledge itself.
 
 **Contract.** (a) every skill's `emits` tags ⊆ the domain vocabulary (D5); (b) the pack collectively produces **every `required: true` topic** across `brd_profile` + `frd_profile` (a required topic with no producing skill is a build error); (c) `adapter.yaml`'s emit-map agrees with the vocabulary's "emitted by" column (no drift). Run order is declared per source class (`docs_pipeline` ordered; `code_pipeline` routes to `code_map_build`). **`docs_pipeline` per-type routing (TASK-063B):** `docs_pipeline` may be a **bare list** (legacy form == the `default` lane) **or** a **mapping** keyed by source `type` with a required `default` fallback (e.g. `confluence:` routes Confluence pages to a tag-only lane, distinct from the PDF `default`). Routing is by **source `type`, never `domain`** (D7), and the connector descriptor + manifest-entry shapes are unchanged across lanes (**descriptor parity** — only the *processing* differs). The §10.5 checks below run across the **union** of all variants' emits.
 
@@ -637,8 +636,7 @@ The domain's pre-processing adapter is a **pack** of skills under `profiles/<dom
 domain: payment_brand                # PBI
 docs_pipeline:                       # ordered; runs per non-code (document) source
   - { skill: pdf_extract,        emits: [] }                                   # structural extraction; no tags
-  - { skill: article_summarize,  emits: [brand_rules, message_format, interchange_fees, reporting] }
-  - { skill: change_type_assess, emits: [mandate, card_brand, routing, certification, compliance_deadline] }
+  - { skill: article_summarize,  emits: [brand_rules, message_format, interchange_fees, reporting, mandate, transaction_flow, card_brand, routing, certification, compliance_deadline] }  # SOLE doc tagger — all 10 doc-side tags
 code_pipeline:                       # code sources route here
   - { skill: code_map_build,     emits: [routing, settlement, transaction_flow, error_handling, message_format, card_brand] }
 ```
@@ -649,15 +647,16 @@ The `emits` sets reproduce the D5 vocabulary "emitted by" mapping; build check *
 
 ```yaml
 docs_pipeline:                       # routed by source `type`; bare-list form still valid (== default)
-  default:                           # type: file, sharepoint (PDFs) — the ordered 3-step lane
+  default:                           # type: file, sharepoint (PDFs) — the ordered 2-step lane
     - { skill: pdf_extract,        emits: [] }
-    - { skill: article_summarize,  emits: [brand_rules, message_format, interchange_fees, reporting, mandate, transaction_flow] }
-    - { skill: change_type_assess, emits: [mandate, card_brand, routing, certification, compliance_deadline] }
-  confluence:                        # type: confluence — tag-only KB lane (no extract/summarize/change-type)
+    - { skill: article_summarize,  emits: [brand_rules, message_format, interchange_fees, reporting, mandate, transaction_flow, card_brand, routing, certification, compliance_deadline] }  # SOLE doc tagger — all 10 doc-side tags
+  confluence:                        # type: confluence — tag-only KB lane (no extract/summarize)
     - { skill: confluence_tag,     emits: [brand_rules, card_brand, message_format, routing, transaction_flow, error_handling] }
 ```
 
 `source_processor` selects the lane by `src.type`, falling back to `default`. A new emitting skill (e.g. `confluence_tag`) must be added to the vocabulary's `emitted_by` for each tag it emits (the §10.5 union check enforces this); descriptor parity is preserved — only the processing pipeline differs by type, never the descriptor or manifest shape.
+
+**`change_type_assess` removed (change_type_removal, V-approved).** The `default` lane was originally three steps: `pdf_extract → article_summarize → change_type_assess`. The third skill produced (a) a `change_type` classification field on the manifest entry, which **nothing downstream consumed** (no code or profile branched on it), and (b) five doc-side tags (`mandate`, `card_brand`, `routing`, `certification`, `compliance_deadline`). It was a **second full model pass over the same extracted text** for those five tags, so it was consolidated into `article_summarize` — now the **sole tagger**, owning all ten doc-side tags. The `change_type` field is dropped entirely (removed from the §3.2 entry shape and `merge_manifest.py`'s key order). The D5 `emitted_by` column re-homes those five tags `change_type_assess → article_summarize` (`vocab_sha → d5frozen-r4`). **Port note:** carry this into the JPMC-side §6.6.3 / D5 at port time; see `notes/change_type_removal.md`.
 
 **Where the concrete files are authored.** This subsection fixes the *contracts and homes*. The concrete `payment_brand` instances (`brd_profile`, `frd_profile`, `vocabulary` [already pinned in D5], `adapter.yaml` + the four pack skills, the two slice-1 connectors) are **authored during the build as Chat B pre-tasks**, each gated by the build checks above — not pre-authored in this spec.
 

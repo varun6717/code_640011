@@ -292,18 +292,18 @@ Notes:
 
 | Tag | Definition | Emitted by (adapter skill) | Consumed by | Code tag? |
 |-----|------------|----------------------------|-------------|-----------|
-| `mandate` | The originating brand mandate, its ID and compliance deadline | `change_type_assess`, `article_summarize` | BRD business_context | no |
+| `mandate` | The originating brand mandate, its ID and compliance deadline | `article_summarize` | BRD business_context | no |
 | `brand_rules` | Brand technical/operational rules constraining implementation | `article_summarize` | BRD business_context, FRD system_behavior | no |
-| `card_brand` | Which card brand(s) the work concerns | `change_type_assess`, `code_map_build` | BRD scope, code routing | yes |
-| `routing` | Transaction routing to brand handlers | `change_type_assess`, `code_map_build` | BRD/FRD routing_behavior | yes |
+| `card_brand` | Which card brand(s) the work concerns | `article_summarize`, `code_map_build` | BRD scope, code routing | yes |
+| `routing` | Transaction routing to brand handlers | `article_summarize`, `code_map_build` | BRD/FRD routing_behavior | yes |
 | `message_format` | Message/wire formats and field-level changes | `article_summarize`, `code_map_build` | FRD data_contracts | yes |
-| `certification` | Brand certification / conformance requirements | `change_type_assess` | BRD requirements, FRD nfrs | no |
+| `certification` | Brand certification / conformance requirements | `article_summarize` | BRD requirements, FRD nfrs | no |
 | `settlement` | Settlement / reconciliation behavior | `code_map_build` | BRD change-impact, FRD system_behavior | yes |
 | `transaction_flow` | End-to-end transaction lifecycle steps | `article_summarize`, `code_map_build` | FRD actor_flows | yes |
 | `error_handling` | Failure modes, error codes, retry/fallback | `code_map_build` | FRD error_states | yes |
 | `interchange_fees` | Interchange / fee schedule impacts | `article_summarize` | BRD requirements | no |
 | `reporting` | Reporting / downstream data obligations | `article_summarize` | BRD success_metrics, FRD data_contracts | no |
-| `compliance_deadline` | The hard date(s) the work must meet | `change_type_assess` | BRD constraints_assumptions | no |
+| `compliance_deadline` | The hard date(s) the work must meet | `article_summarize` | BRD constraints_assumptions | no |
 
 **Contract invariant (machine-checked):**
 - `topics(brd_profile) ∪ topics(frd_profile) ⊆ vocabulary` — every profile topic is a known tag.
